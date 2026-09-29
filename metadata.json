@@ -1,0 +1,6 @@
+{
+  "name": "Говорун",
+  "description": "Интерактивное обучение русскому языку методом полного погружения и подражания («метод попугая»). Алфавит, карточки, тренажёр произношения, словарь и геймификация.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
