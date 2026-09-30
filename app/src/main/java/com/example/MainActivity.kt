@@ -6,8 +6,14 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -21,11 +27,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.service.NotificationHelper
 import com.example.ui.MainViewModel
+import com.example.ui.components.LockedSectionView
 import com.example.ui.components.TopBarWithStats
 import com.example.ui.navigation.Screen
 import com.example.ui.screens.AlphabetScreen
@@ -50,11 +59,14 @@ class MainActivity : ComponentActivity() {
             val themeMode by viewModel.themeMode.collectAsState()
             val userProgress by viewModel.userProgress.collectAsState()
 
-            RussianLearningTheme(themeMode = themeMode) {
-                var currentScreen by remember { mutableStateOf(Screen.TRAINER) }
+            val isAlphabetUnlocked = userProgress.isAlphabetMastered ||
+                    userProgress.getLearnedLettersSet().size >= 33
 
-                BackHandler(enabled = currentScreen != Screen.TRAINER) {
-                    currentScreen = Screen.TRAINER
+            RussianLearningTheme(themeMode = themeMode) {
+                var currentScreen by remember { mutableStateOf(Screen.ALPHABET) }
+
+                BackHandler(enabled = currentScreen != Screen.ALPHABET) {
+                    currentScreen = Screen.ALPHABET
                 }
 
                 Scaffold(
@@ -78,14 +90,35 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.testTag("main_navigation_bar")
                         ) {
                             Screen.values().forEach { screen ->
+                                val isLocked = screen.requiresAlphabet && !isAlphabetUnlocked
+
                                 NavigationBarItem(
                                     selected = currentScreen == screen,
                                     onClick = { currentScreen = screen },
                                     icon = {
-                                        Icon(
-                                            imageVector = screen.icon,
-                                            contentDescription = screen.title
-                                        )
+                                        if (isLocked) {
+                                            BadgedBox(
+                                                badge = {
+                                                    Badge(containerColor = MaterialTheme.colorScheme.error) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Lock,
+                                                            contentDescription = "Закрыто",
+                                                            modifier = Modifier.size(10.dp)
+                                                        )
+                                                    }
+                                                }
+                                            ) {
+                                                Icon(
+                                                    imageVector = screen.icon,
+                                                    contentDescription = screen.title
+                                                )
+                                            }
+                                        } else {
+                                            Icon(
+                                                imageVector = screen.icon,
+                                                contentDescription = screen.title
+                                            )
+                                        }
                                     },
                                     label = {
                                         Text(
@@ -110,22 +143,59 @@ class MainActivity : ComponentActivity() {
                         .padding(innerPadding)
 
                     when (currentScreen) {
-                        Screen.TRAINER -> ParrotTrainerScreen(
-                            viewModel = viewModel,
-                            modifier = screenModifier
-                        )
                         Screen.ALPHABET -> AlphabetScreen(
                             viewModel = viewModel,
+                            onNavigateToTrainer = { currentScreen = Screen.TRAINER },
                             modifier = screenModifier
                         )
-                        Screen.CARDS -> FlashcardsScreen(
-                            viewModel = viewModel,
-                            modifier = screenModifier
-                        )
-                        Screen.DICTIONARY -> DictionaryScreen(
-                            viewModel = viewModel,
-                            modifier = screenModifier
-                        )
+                        Screen.TRAINER -> {
+                            if (!isAlphabetUnlocked) {
+                                LockedSectionView(
+                                    targetSectionTitle = "Тренажёр «Попугай»",
+                                    userProgress = userProgress,
+                                    onNavigateToAlphabet = { currentScreen = Screen.ALPHABET },
+                                    onQuickPassAlphabet = { viewModel.unlockAlphabetByPass() },
+                                    modifier = screenModifier
+                                )
+                            } else {
+                                ParrotTrainerScreen(
+                                    viewModel = viewModel,
+                                    modifier = screenModifier
+                                )
+                            }
+                        }
+                        Screen.CARDS -> {
+                            if (!isAlphabetUnlocked) {
+                                LockedSectionView(
+                                    targetSectionTitle = "Карточки со словами",
+                                    userProgress = userProgress,
+                                    onNavigateToAlphabet = { currentScreen = Screen.ALPHABET },
+                                    onQuickPassAlphabet = { viewModel.unlockAlphabetByPass() },
+                                    modifier = screenModifier
+                                )
+                            } else {
+                                FlashcardsScreen(
+                                    viewModel = viewModel,
+                                    modifier = screenModifier
+                                )
+                            }
+                        }
+                        Screen.DICTIONARY -> {
+                            if (!isAlphabetUnlocked) {
+                                LockedSectionView(
+                                    targetSectionTitle = "Встроенный словарь",
+                                    userProgress = userProgress,
+                                    onNavigateToAlphabet = { currentScreen = Screen.ALPHABET },
+                                    onQuickPassAlphabet = { viewModel.unlockAlphabetByPass() },
+                                    modifier = screenModifier
+                                )
+                            } else {
+                                DictionaryScreen(
+                                    viewModel = viewModel,
+                                    modifier = screenModifier
+                                )
+                            }
+                        }
                         Screen.PROGRESS -> ProgressScreen(
                             viewModel = viewModel,
                             modifier = screenModifier

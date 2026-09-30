@@ -170,75 +170,86 @@ fun ParrotTrainerScreen(
             .verticalScroll(rememberScrollState())
             .padding(bottom = 24.dp)
     ) {
-        // Hero Banner
-        Box(
+        // Блок 1: Минималистичный заголовок с границей и тенью
+        ElevatedCard(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(130.dp)
-                .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(16.dp)
+                )
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.img_hero_banner),
-                contentDescription = "Баннер обучения русскому языку",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color(0xCC0F172A))
-                        )
-                    )
-            )
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(16.dp)
-            ) {
+            Column(modifier = Modifier.padding(14.dp)) {
                 Text(
-                    text = "МЕТОД ПОЛНОГО ПОГРУЖЕНИЯ",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFFFBBF24)
+                    text = "Тренажёр «Попугай»",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-0.3).sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Услышал — Повтори!",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
-                    color = Color.White
+                    text = "Метод подражания: Услышал — Повтори!",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
 
-        // Level Tabs (1 to 4)
-        val levels = listOf(
-            1 to "1. Звуки и слоги",
-            2 to "2. Существительные",
-            3 to "3. Глаголы",
-            4 to "4. Разговор"
-        )
-
-        ScrollableTabRow(
-            selectedTabIndex = currentLevel - 1,
-            edgePadding = 16.dp,
+        // Блок 2: Вкладки уровней сложности с границей и тенью
+        ElevatedCard(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.5.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        ) {
-            levels.forEach { (lvl, title) ->
-                Tab(
-                    selected = currentLevel == lvl,
-                    onClick = { viewModel.selectLevel(lvl) },
-                    text = {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = if (currentLevel == lvl) FontWeight.Bold else FontWeight.Normal
-                            )
-                        )
-                    },
-                    modifier = Modifier.testTag("tab_level_$lvl")
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(16.dp)
                 )
+        ) {
+            val levels = listOf(
+                1 to "1. Звуки",
+                2 to "2. Слова",
+                3 to "3. Глаголы",
+                4 to "4. Разговор"
+            )
+
+            ScrollableTabRow(
+                selectedTabIndex = currentLevel - 1,
+                edgePadding = 12.dp,
+                containerColor = Color.Transparent,
+                divider = {},
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+            ) {
+                levels.forEach { (lvl, title) ->
+                    Tab(
+                        selected = currentLevel == lvl,
+                        onClick = { viewModel.selectLevel(lvl) },
+                        text = {
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = if (currentLevel == lvl) FontWeight.Bold else FontWeight.Normal
+                                )
+                            )
+                        },
+                        modifier = Modifier.testTag("tab_level_$lvl")
+                    )
+                }
             }
         }
 
@@ -248,9 +259,9 @@ fun ParrotTrainerScreen(
             speechBubbleText = parrotMessage
         )
 
-        // Main Target Card
+        // Блок 3: Главная карточка задания с границей и тенью
         ElevatedCard(
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(22.dp),
             colors = CardDefaults.elevatedCardColors(
                 containerColor = MaterialTheme.colorScheme.surface
             ),
@@ -258,6 +269,11 @@ fun ParrotTrainerScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 6.dp)
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(22.dp)
+                )
                 .testTag("target_lesson_card")
         ) {
             Column(

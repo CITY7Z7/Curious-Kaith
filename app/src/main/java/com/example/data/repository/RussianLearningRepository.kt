@@ -96,6 +96,30 @@ class RussianLearningRepository(private val db: AppDatabase) {
         db.userProgressDao().updateSpeechSettings(rate, pitch, voice)
     }
 
+    suspend fun recordLetterPracticed(letter: String, currentProgress: UserProgress) = withContext(Dispatchers.IO) {
+        val currentSet = currentProgress.getLearnedLettersSet().toMutableSet()
+        currentSet.add(letter)
+        val isAllMastered = currentSet.size >= 33
+        val newListStr = currentSet.joinToString(",")
+        db.userProgressDao().updateAlphabetProgress(isAllMastered, newListStr)
+
+        if (isAllMastered) {
+            val todayStr = SimpleDateFormat("dd.MM", Locale.getDefault()).format(Date())
+            db.badgeDao().unlockBadge("badge_alphabet", todayStr)
+            db.userProgressDao().addXpAndWords(50, 0)
+        }
+    }
+
+    suspend fun setAlphabetMastered(mastered: Boolean) = withContext(Dispatchers.IO) {
+        val allLetters = "А,Б,В,Г,Д,Е,Ё,Ж,З,И,Й,К,Л,М,Н,О,П,Р,С,Т,У,Ф,Х,Ц,Ч,Ш,Щ,Ъ,Ы,Ь,Э,Ю,Я"
+        db.userProgressDao().updateAlphabetProgress(mastered, if (mastered) allLetters else "")
+        if (mastered) {
+            val todayStr = SimpleDateFormat("dd.MM", Locale.getDefault()).format(Date())
+            db.badgeDao().unlockBadge("badge_alphabet", todayStr)
+            db.userProgressDao().addXpAndWords(50, 0)
+        }
+    }
+
     suspend fun updateThemeMode(themeMode: String) = withContext(Dispatchers.IO) {
         db.userProgressDao().updateThemeMode(themeMode)
     }

@@ -49,6 +49,9 @@ interface UserProgressDao {
     @Query("UPDATE user_progress SET speechRate = :rate, speechPitch = :pitch, selectedVoice = :voice WHERE id = 1")
     suspend fun updateSpeechSettings(rate: Float, pitch: Float, voice: String)
 
+    @Query("UPDATE user_progress SET isAlphabetMastered = :mastered, learnedLettersList = :letters WHERE id = 1")
+    suspend fun updateAlphabetProgress(mastered: Boolean, letters: String)
+
     @Query("UPDATE user_progress SET themeMode = :themeMode WHERE id = 1")
     suspend fun updateThemeMode(themeMode: String)
 }

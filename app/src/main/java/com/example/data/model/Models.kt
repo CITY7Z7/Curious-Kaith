@@ -44,6 +44,7 @@ data class LessonItem(
     val level: Int,
     val title: String,
     val targetText: String,
+    val ttsText: String = targetText,
     val stimulusCommand: String = "Повтори: $targetText",
     val phoneticTip: String,
     val contextDescription: String,
@@ -54,7 +55,7 @@ data class LessonItem(
 data class UserProgress(
     @PrimaryKey val id: Int = 1,
     val xp: Int = 40,
-    val levelName: String = "Любознательный птенец",
+    val levelName: String = "Любознательный ученик",
     val currentStreak: Int = 1,
     val lastActiveDate: String = "",
     val wordsLearnedCount: Int = 0,
@@ -64,8 +65,15 @@ data class UserProgress(
     val speechRate: Float = 0.9f,
     val speechPitch: Float = 1.0f,
     val selectedVoice: String = "",
-    val themeMode: String = "SYSTEM"
-)
+    val themeMode: String = "SYSTEM",
+    val isAlphabetMastered: Boolean = false,
+    val learnedLettersList: String = ""
+) {
+    fun getLearnedLettersSet(): Set<String> {
+        return if (learnedLettersList.isBlank()) emptySet()
+        else learnedLettersList.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
+    }
+}
 
 @Entity(tableName = "study_plan")
 data class StudyPlan(

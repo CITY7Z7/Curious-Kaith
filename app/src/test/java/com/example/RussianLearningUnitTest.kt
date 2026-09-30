@@ -5,6 +5,7 @@ import com.example.data.DictionaryData
 import com.example.data.GamificationData
 import com.example.data.ParrotLessonData
 import com.example.data.model.LetterType
+import com.example.data.model.UserProgress
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -21,6 +22,18 @@ class RussianLearningUnitTest {
 
         val signs = AlphabetData.letters.filter { it.type == LetterType.SIGN }
         assertEquals("There must be 2 signs (Ъ, Ь)", 2, signs.size)
+    }
+
+    @Test
+    fun testAlphabetLockCondition() {
+        val initialProgress = UserProgress(isAlphabetMastered = false, learnedLettersList = "А,Б,В")
+        assertFalse("Alphabet should not be mastered with 3 letters", initialProgress.isAlphabetMastered)
+        assertEquals(3, initialProgress.getLearnedLettersSet().size)
+
+        val allLetters = AlphabetData.letters.map { it.letter }.joinToString(",")
+        val completedProgress = UserProgress(isAlphabetMastered = true, learnedLettersList = allLetters)
+        assertTrue("Alphabet should be mastered", completedProgress.isAlphabetMastered)
+        assertEquals(33, completedProgress.getLearnedLettersSet().size)
     }
 
     @Test
@@ -44,6 +57,14 @@ class RussianLearningUnitTest {
             assertTrue("Definition must be in Russian", w.definitionRu.isNotBlank())
             assertTrue("Context example must not be empty", w.exampleSentence.isNotBlank())
         }
+    }
+
+    @Test
+    fun testKoPronunciationStress() {
+        val koLesson = ParrotLessonData.lessons.find { it.id == 110 }
+        assertTrue("Lesson 110 must exist", koLesson != null)
+        assertEquals("Target text should be Ко", "Ко", koLesson?.targetText)
+        assertEquals("TTS text must have stress mark to prevent reduction to Ka", "Кó", koLesson?.ttsText)
     }
 
     @Test

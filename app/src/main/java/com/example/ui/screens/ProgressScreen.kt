@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -106,53 +107,80 @@ fun ProgressScreen(
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .padding(bottom = 80.dp)
     ) {
-        // Title & Export Button
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        // Блок 1: Заголовок и кнопка PDF с границей и тенью
+        ElevatedCard(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(16.dp)
+                )
         ) {
-            Column {
-                Text(
-                    text = "Мой прогресс",
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "План обучения и достижения",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            // PDF Export Button
-            Button(
-                onClick = {
-                    viewModel.exportProgressPdf(context)
-                    Toast.makeText(context, "Формирование PDF-отчёта...", Toast.LENGTH_SHORT).show()
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.testTag("btn_export_pdf")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.PictureAsPdf,
-                    contentDescription = "Экспорт в PDF"
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("PDF-отчёт")
+                Column {
+                    Text(
+                        text = "Мой прогресс",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-0.3).sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "План обучения и достижения",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // PDF Export Button
+                Button(
+                    onClick = {
+                        viewModel.exportProgressPdf(context)
+                        Toast.makeText(context, "Формирование PDF-отчёта...", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.testTag("btn_export_pdf")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PictureAsPdf,
+                        contentDescription = "Экспорт в PDF"
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("PDF-отчёт")
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // Level & Stats Summary Card
+        // Блок 2: Сводка статуса и очков ученика
         ElevatedCard(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.elevatedCardColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer
             ),
-            modifier = Modifier.fillMaxWidth()
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.5.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(18.dp)
+                )
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
                 Row(

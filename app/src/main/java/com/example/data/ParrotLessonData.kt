@@ -19,6 +19,7 @@ object ParrotLessonData {
             level = 1,
             title = "Звук [О]",
             targetText = "О",
+            ttsText = "О́",
             stimulusCommand = "Повтори: О",
             phoneticTip = "Губы округлены колечком.",
             contextDescription = "Базовый гласный звук"
@@ -91,6 +92,7 @@ object ParrotLessonData {
             level = 1,
             title = "Слог [КО]",
             targetText = "Ко",
+            ttsText = "Кó",
             stimulusCommand = "Повтори: Ко",
             phoneticTip = "Задняя часть нёба и округлённые губы.",
             contextDescription = "Твёрдый слог"

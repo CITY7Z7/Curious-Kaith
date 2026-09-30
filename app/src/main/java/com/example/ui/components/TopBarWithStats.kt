@@ -48,20 +48,20 @@ fun TopBarWithStats(
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "Говорун",
-                        style = MaterialTheme.typography.titleLarge.copy(
+                        text = "Любопытная Катя",
+                        style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Black,
-                            letterSpacing = 0.5.sp
+                            letterSpacing = 0.2.sp
                         ),
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = " 🦜",
-                        fontSize = 18.sp
+                        text = " ✨",
+                        fontSize = 16.sp
                     )
                 }
                 Text(
-                    text = "Метод попугая • 100% русский",
+                    text = "Изучение русского языка",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

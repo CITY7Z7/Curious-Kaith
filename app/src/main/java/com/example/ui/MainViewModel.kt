@@ -182,7 +182,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val lesson = getCurrentLesson()
         _parrotMood.value = ParrotMood.SPEAKING
         _parrotMessage.value = lesson.stimulusCommand
-        ttsManager.speak(lesson.targetText) {
+        ttsManager.speak(lesson.ttsText) {
             _parrotMood.value = ParrotMood.LISTENING
         }
     }
@@ -253,10 +253,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return dp[s1.length][s2.length]
     }
 
+    // Alphabet sprint tap-only mode
+    private val _isTapOnlyMode = MutableStateFlow(false)
+    val isTapOnlyMode: StateFlow<Boolean> = _isTapOnlyMode.asStateFlow()
+
+    fun toggleTapOnlyMode() {
+        _isTapOnlyMode.value = !_isTapOnlyMode.value
+    }
+
+    fun onLetterTapped(letter: LetterItem) {
+        if (_isTapOnlyMode.value) {
+            ttsManager.speak(letter.letter)
+            viewModelScope.launch {
+                repository.recordLetterPracticed(letter.letter, userProgress.value)
+            }
+        } else {
+            selectLetter(letter)
+        }
+    }
+
     fun selectLetter(letter: LetterItem?) {
         _selectedLetter.value = letter
         if (letter != null) {
             ttsManager.speak(letter.letter)
+            viewModelScope.launch {
+                repository.recordLetterPracticed(letter.letter, userProgress.value)
+            }
+        }
+    }
+
+    fun unlockAlphabetByPass() {
+        viewModelScope.launch {
+            repository.setAlphabetMastered(true)
+        }
+    }
+
+    fun resetAlphabetProgress() {
+        viewModelScope.launch {
+            repository.setAlphabetMastered(false)
         }
     }
 
