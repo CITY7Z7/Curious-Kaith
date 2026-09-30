@@ -1,11 +1,13 @@
 package com.example
 
 import com.example.data.AlphabetData
+import com.example.data.ContrastCategory
 import com.example.data.DialogueData
 import com.example.data.DictionaryData
 import com.example.data.GamificationData
 import com.example.data.IntonationData
 import com.example.data.IntonationType
+import com.example.data.MinimalPairsData
 import com.example.data.ParrotLessonData
 import com.example.data.SpeakerRole
 import com.example.data.model.LetterType
@@ -121,6 +123,29 @@ class RussianLearningUnitTest {
                     assertTrue("Pitch point must be in range 0.0..1.0", p in 0f..1f)
                 }
             }
+        }
+    }
+
+    @Test
+    fun testMinimalPairsDataCompleteness() {
+        assertTrue("Must contain minimal pairs", MinimalPairsData.pairs.size >= 10)
+
+        val hardSoftPairs = MinimalPairsData.pairs.filter { it.category == ContrastCategory.HARD_SOFT }
+        val voicePairs = MinimalPairsData.pairs.filter { it.category == ContrastCategory.VOICED_VOICELESS }
+
+        assertTrue("Must contain hard/soft contrast pairs", hardSoftPairs.size >= 6)
+        assertTrue("Must contain voiced/voiceless contrast pairs", voicePairs.size >= 4)
+
+        for (pair in MinimalPairsData.pairs) {
+            assertTrue("Contrast key must not be blank", pair.contrastKey.isNotBlank())
+            assertTrue("Word A must not be blank", pair.wordA.word.isNotBlank())
+            assertTrue("Word B must not be blank", pair.wordB.word.isNotBlank())
+            assertTrue("Transcription A must not be blank", pair.wordA.transcription.isNotBlank())
+            assertTrue("Transcription B must not be blank", pair.wordB.transcription.isNotBlank())
+            assertTrue("Phonetic role A must not be blank", pair.wordA.phoneticRole.isNotBlank())
+            assertTrue("Phonetic role B must not be blank", pair.wordB.phoneticRole.isNotBlank())
+            assertTrue("Pedagogical explanation must not be blank", pair.pedagogicalExplanation.isNotBlank())
+            assertTrue("Word A and Word B must differ", pair.wordA.word != pair.wordB.word)
         }
     }
 }

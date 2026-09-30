@@ -13,6 +13,10 @@ import com.example.data.IntonationContrastSet
 import com.example.data.IntonationData
 import com.example.data.IntonationItem
 import com.example.data.IntonationType
+import com.example.data.MinimalPairItem
+import com.example.data.MinimalPairWord
+import com.example.data.MinimalPairsData
+import com.example.data.ContrastCategory
 import com.example.data.ParrotLessonData
 import com.example.data.SpeakerRole
 import com.example.data.db.AppDatabase
@@ -127,6 +131,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedIntonationItemIndex = MutableStateFlow(0)
     val selectedIntonationItemIndex: StateFlow<Int> = _selectedIntonationItemIndex.asStateFlow()
 
+    // Minimal Pairs state (Level 7)
+    val minimalPairsList: List<MinimalPairItem> = MinimalPairsData.pairs
+    private val _selectedPairCategory = MutableStateFlow<ContrastCategory?>(null)
+    val selectedPairCategory: StateFlow<ContrastCategory?> = _selectedPairCategory.asStateFlow()
+
+    private val _selectedPairId = MutableStateFlow(1)
+    val selectedPairId: StateFlow<Int> = _selectedPairId.asStateFlow()
+
+    private val _selectedWordOption = MutableStateFlow("A") // "A" or "B"
+    val selectedWordOption: StateFlow<String> = _selectedWordOption.asStateFlow()
+
     // Dictionary filter states
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -184,9 +199,94 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val item = getCurrentIntonationItem()
             _parrotMessage.value = "Интонация: ${item.type.code} (${item.type.arrowSymbol}). Послушай мелодику фразы!"
             speakCurrentIntonation()
+        } else if (level == 7) {
+            val pair = getCurrentPair()
+            _parrotMessage.value = "Контрасты: ${pair.contrastKey} («${pair.wordA.word}» vs «${pair.wordB.word}»). Послушай разницу!"
+            speakPairWord("A")
         } else {
             val lesson = getCurrentLesson()
             _parrotMessage.value = "Уровень $level. Послушай и повтори: ${lesson.targetText}"
+        }
+    }
+
+    // ================= МИНИМАЛЬНЫЕ ПАРЫ (УРОВЕНЬ 7) =================
+    fun getCurrentPair(): MinimalPairItem {
+        return minimalPairsList.find { it.id == _selectedPairId.value } ?: minimalPairsList.first()
+    }
+
+    fun selectPairCategory(category: ContrastCategory?) {
+        _selectedPairCategory.value = category
+        val firstOfCategory = if (category == null) minimalPairsList.first() else minimalPairsList.firstOrNull { it.category == category } ?: minimalPairsList.first()
+        _selectedPairId.value = firstOfCategory.id
+        _selectedWordOption.value = "A"
+        _parrotMood.value = ParrotMood.NEUTRAL
+        _parrotMessage.value = "Пара: «${firstOfCategory.wordA.word}» vs «${firstOfCategory.wordB.word}». Сравни звуки!"
+    }
+
+    fun selectPair(pairId: Int) {
+        _selectedPairId.value = pairId
+        _selectedWordOption.value = "A"
+        val pair = getCurrentPair()
+        _parrotMood.value = ParrotMood.NEUTRAL
+        _parrotMessage.value = "${pair.contrastKey}: «${pair.wordA.word}» vs «${pair.wordB.word}»"
+        speakBothContrastWords()
+    }
+
+    fun selectWordOption(option: String) {
+        _selectedWordOption.value = option
+        val pair = getCurrentPair()
+        val word = if (option == "A") pair.wordA else pair.wordB
+        _parrotMood.value = ParrotMood.NEUTRAL
+        _parrotMessage.value = "Слово ${word.word}: ${word.phoneticRole}"
+        speakPairWord(option)
+    }
+
+    fun speakPairWord(option: String) {
+        val pair = getCurrentPair()
+        val word = if (option == "A") pair.wordA else pair.wordB
+        _parrotMood.value = ParrotMood.SPEAKING
+        _parrotMessage.value = "«${word.word}» (${word.phoneticRole})\n${word.meaningRu}"
+        ttsManager.speak(word.stressMarked) {
+            _parrotMood.value = ParrotMood.LISTENING
+        }
+    }
+
+    fun speakBothContrastWords() {
+        val pair = getCurrentPair()
+        _parrotMood.value = ParrotMood.SPEAKING
+        _parrotMessage.value = "Сравни на слух:\n1. «${pair.wordA.word}» ➔ 2. «${pair.wordB.word}»"
+        ttsManager.speak("${pair.wordA.stressMarked}. ... ${pair.wordB.stressMarked}") {
+            _parrotMood.value = ParrotMood.LISTENING
+        }
+    }
+
+    fun onUserRepeatedPairWord(spokenText: String? = null, isDirectConfirmation: Boolean = false) {
+        val pair = getCurrentPair()
+        val targetWord = if (_selectedWordOption.value == "A") pair.wordA else pair.wordB
+
+        val isCorrect = if (isDirectConfirmation) {
+            true
+        } else if (!spokenText.isNullOrBlank()) {
+            val cleanTarget = targetWord.word.lowercase().replace("[^а-яё]".toRegex(), "").trim()
+            val cleanSpoken = spokenText.lowercase().replace("[^а-яё]".toRegex(), "").trim()
+            cleanSpoken.contains(cleanTarget) || cleanTarget.contains(cleanSpoken) ||
+                    calculateSimilarity(cleanTarget, cleanSpoken) > 0.45
+        } else {
+            true
+        }
+
+        if (isCorrect) {
+            _parrotMood.value = ParrotMood.HAPPY
+            _consecutiveStreak.value += 1
+            _parrotMessage.value = "Отлично! Чётко произнесено: «${targetWord.word}» (${targetWord.phoneticRole})!\n+15 Опыта (XP)!"
+            ttsManager.speak("Отлично! Точное произношение!")
+            viewModelScope.launch {
+                repository.addXp(15, 1)
+            }
+        } else {
+            _parrotMood.value = ParrotMood.TRY_AGAIN
+            _parrotMessage.value = "Попробуй ещё раз! Внимание на артикуляцию:\n${targetWord.articulationHint}"
+            ttsManager.speak("Послушай ещё раз: ${targetWord.stressMarked}")
         }
     }
 

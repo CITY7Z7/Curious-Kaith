@@ -93,6 +93,10 @@ import com.example.data.IntonationContrastSet
 import com.example.data.IntonationData
 import com.example.data.IntonationItem
 import com.example.data.IntonationType
+import com.example.data.MinimalPairItem
+import com.example.data.MinimalPairWord
+import com.example.data.MinimalPairsData
+import com.example.data.ContrastCategory
 import com.example.data.SpeakerRole
 import com.example.data.model.LessonItem
 import com.example.ui.MainViewModel
@@ -154,6 +158,8 @@ fun ParrotTrainerScreen(
                         viewModel.onUserSpokeDialogueTurn(spokenText = spoken)
                     } else if (currentLevel == 6) {
                         viewModel.onUserRepeatedIntonation(spokenText = spoken)
+                    } else if (currentLevel == 7) {
+                        viewModel.onUserRepeatedPairWord(spokenText = spoken)
                     } else {
                         viewModel.onUserRepeated(spokenText = spoken)
                     }
@@ -181,7 +187,7 @@ fun ParrotTrainerScreen(
 
     // Auto-pronounce lesson sound when opened or level changed (levels 1-4)
     LaunchedEffect(currentLesson.id, currentLevel) {
-        if (currentLevel != 5 && currentLevel != 6) {
+        if (currentLevel != 5 && currentLevel != 6 && currentLevel != 7) {
             viewModel.speakTargetLesson()
         }
     }
@@ -247,7 +253,8 @@ fun ParrotTrainerScreen(
                 3 to "3. Глаголы",
                 4 to "4. Разговор",
                 5 to "5. Диалоги 🎭",
-                6 to "6. Интонация 🎵"
+                6 to "6. Интонация 🎵",
+                7 to "7. Контрасты ⚡"
             )
 
             ScrollableTabRow(
@@ -303,6 +310,24 @@ fun ParrotTrainerScreen(
             )
         } else if (currentLevel == 6) {
             IntonationTrainerSection(
+                viewModel = viewModel,
+                isListeningSpeech = isListeningSpeech,
+                recognizedSpokenText = recognizedSpokenText,
+                onStartListening = {
+                    if (ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        startSpeechRecognition(context, speechRecognizer)
+                        isListeningSpeech = true
+                    } else {
+                        recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                }
+            )
+        } else if (currentLevel == 7) {
+            MinimalPairsTrainerSection(
                 viewModel = viewModel,
                 isListeningSpeech = isListeningSpeech,
                 recognizedSpokenText = recognizedSpokenText,
@@ -1447,6 +1472,433 @@ private fun IntonationTrainerSection(
                             .weight(1f)
                             .height(52.dp)
                             .testTag("btn_intonation_confirm"),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Я повторил!")
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Я повторил!",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+
+                if (recognizedSpokenText.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Распознано: «$recognizedSpokenText»",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MinimalPairsTrainerSection(
+    viewModel: MainViewModel,
+    isListeningSpeech: Boolean,
+    recognizedSpokenText: String,
+    onStartListening: () -> Unit
+) {
+    val selectedCategory by viewModel.selectedPairCategory.collectAsState()
+    val selectedPairId by viewModel.selectedPairId.collectAsState()
+    val selectedOption by viewModel.selectedWordOption.collectAsState()
+    val currentPair = viewModel.getCurrentPair()
+    val selectedWord = if (selectedOption == "A") currentPair.wordA else currentPair.wordB
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Блок 1: Заголовок и фильтр категорий
+        ElevatedCard(
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(18.dp)
+                )
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Минимальные пары (Оппозиции)",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Фонематический слух: один звук меняет смысл",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Text(
+                            text = "Фонетика",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Фильтры категорий
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val allSelected = selectedCategory == null
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (allSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { viewModel.selectPairCategory(null) }
+                            .testTag("filter_pair_all")
+                    ) {
+                        Text(
+                            text = "Все пары",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = if (allSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                        )
+                    }
+
+                    ContrastCategory.values().forEach { cat ->
+                        val isCatSelected = selectedCategory == cat
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isCatSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier
+                                .weight(1.3f)
+                                .clickable { viewModel.selectPairCategory(cat) }
+                                .testTag("filter_pair_${cat.name}")
+                        ) {
+                            Text(
+                                text = cat.badgeEmoji + " " + when (cat) {
+                                    ContrastCategory.HARD_SOFT -> "Твёрдый/Мягкий"
+                                    ContrastCategory.VOICED_VOICELESS -> "Звонкий/Глухой"
+                                },
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = if (isCatSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Карусель пар
+                val currentFiltered = if (selectedCategory == null) viewModel.minimalPairsList else viewModel.minimalPairsList.filter { it.category == selectedCategory }
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp)
+                ) {
+                    items(currentFiltered) { pair ->
+                        val isSelected = pair.id == selectedPairId
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = if (isSelected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+                            modifier = Modifier
+                                .clickable { viewModel.selectPair(pair.id) }
+                                .testTag("pair_card_${pair.id}")
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                                Text(
+                                    text = pair.contrastKey,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "${pair.wordA.word} — ${pair.wordB.word}",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    ),
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Блок 2: Главная карточка контрастного сравнения (Слово A vs Слово B)
+        ElevatedCard(
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(22.dp)
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp)
+            ) {
+                // Заголовок контраста
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Оппозиция ${currentPair.contrastKey}",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.tertiaryContainer
+                    ) {
+                        Text(
+                            text = currentPair.category.title,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Карточки A и B рядом
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Слово A
+                    val isASelected = selectedOption == "A"
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isASelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = if (isASelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { viewModel.selectWordOption("A") }
+                            .testTag("word_option_A")
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = currentPair.wordA.phoneticRole,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = if (isASelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = currentPair.wordA.word,
+                                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
+                                color = if (isASelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = currentPair.wordA.transcription,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            IconButton(
+                                onClick = { viewModel.speakPairWord("A") },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.VolumeUp,
+                                    contentDescription = "Слушать слово A",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+
+                    // VS бейдж
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.errorContainer
+                    ) {
+                        Text(
+                            text = "VS",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                        )
+                    }
+
+                    // Слово B
+                    val isBSelected = selectedOption == "B"
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isBSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = if (isBSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { viewModel.selectWordOption("B") }
+                            .testTag("word_option_B")
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = currentPair.wordB.phoneticRole,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = if (isBSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = currentPair.wordB.word,
+                                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
+                                color = if (isBSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = currentPair.wordB.transcription,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            IconButton(
+                                onClick = { viewModel.speakPairWord("B") },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.VolumeUp,
+                                    contentDescription = "Слушать слово B",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Кнопка блиц-сравнения A ➔ B подряд
+                FilledTonalButton(
+                    onClick = { viewModel.speakBothContrastWords() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("btn_pair_speak_both"),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.VolumeUp, contentDescription = "Блиц-сравнение")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Слушать пару подряд: «${currentPair.wordA.word}» ➔ «${currentPair.wordB.word}»",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Карточка фокуса выбранного слова
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "Выбрано для тренировки: «${selectedWord.word}»",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Значение: ${selectedWord.meaningRu}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Положение языка: ${selectedWord.articulationHint}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "💡 ${currentPair.pedagogicalExplanation}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Кнопки записи голоса и подтверждения
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = onStartListening,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isListeningSpeech) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                            .testTag("btn_pair_mic"),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isListeningSpeech) Icons.Default.MicNone else Icons.Default.Mic,
+                            contentDescription = "Микрофон"
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isListeningSpeech) "Слушаю..." else "Сказать «${selectedWord.word}»",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+
+                    FilledTonalButton(
+                        onClick = { viewModel.onUserRepeatedPairWord(isDirectConfirmation = true) },
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color(0xFFD1FAE5),
+                            contentColor = Color(0xFF065F46)
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                            .testTag("btn_pair_confirm"),
                         shape = RoundedCornerShape(14.dp)
                     ) {
                         Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Я повторил!")
