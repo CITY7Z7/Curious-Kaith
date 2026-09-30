@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -80,6 +81,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.R
+import com.example.data.DialogueData
+import com.example.data.DialogueScenario
+import com.example.data.DialogueTurn
+import com.example.data.SpeakerRole
 import com.example.data.model.LessonItem
 import com.example.ui.MainViewModel
 import com.example.ui.ParrotMood
@@ -136,7 +141,11 @@ fun ParrotTrainerScreen(
                 if (!matches.isNullOrEmpty()) {
                     val spoken = matches[0]
                     recognizedSpokenText = spoken
-                    viewModel.onUserRepeated(spokenText = spoken)
+                    if (currentLevel == 5) {
+                        viewModel.onUserSpokeDialogueTurn(spokenText = spoken)
+                    } else {
+                        viewModel.onUserRepeated(spokenText = spoken)
+                    }
                 }
             }
             override fun onPartialResults(partialResults: Bundle?) {}
@@ -159,9 +168,11 @@ fun ParrotTrainerScreen(
         }
     }
 
-    // Auto-pronounce lesson sound when opened or level changed
-    LaunchedEffect(currentLesson.id) {
-        viewModel.speakTargetLesson()
+    // Auto-pronounce lesson sound when opened or level changed (levels 1-4)
+    LaunchedEffect(currentLesson.id, currentLevel) {
+        if (currentLevel != 5) {
+            viewModel.speakTargetLesson()
+        }
     }
 
     Column(
@@ -223,7 +234,8 @@ fun ParrotTrainerScreen(
                 1 to "1. Звуки",
                 2 to "2. Слова",
                 3 to "3. Глаголы",
-                4 to "4. Разговор"
+                4 to "4. Разговор",
+                5 to "5. Диалоги 🎭"
             )
 
             ScrollableTabRow(
@@ -259,23 +271,42 @@ fun ParrotTrainerScreen(
             speechBubbleText = parrotMessage
         )
 
-        // Блок 3: Главная карточка задания с границей и тенью
-        ElevatedCard(
-            shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp)
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-                    shape = RoundedCornerShape(22.dp)
-                )
-                .testTag("target_lesson_card")
-        ) {
+        if (currentLevel == 5) {
+            DialogueTrainerSection(
+                viewModel = viewModel,
+                isListeningSpeech = isListeningSpeech,
+                recognizedSpokenText = recognizedSpokenText,
+                onStartListening = {
+                    if (ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        startSpeechRecognition(context, speechRecognizer)
+                        isListeningSpeech = true
+                    } else {
+                        recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                }
+            )
+        } else {
+            // Блок 3: Главная карточка задания с границей и тенью
+            ElevatedCard(
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(22.dp)
+                    )
+                    .testTag("target_lesson_card")
+            ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -513,6 +544,473 @@ fun ParrotTrainerScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+        }
+    }
+}
+
+@Composable
+private fun DialogueTrainerSection(
+    viewModel: MainViewModel,
+    isListeningSpeech: Boolean,
+    recognizedSpokenText: String,
+    onStartListening: () -> Unit
+) {
+    val selectedScenarioId by viewModel.selectedScenarioId.collectAsState()
+    val currentTurnIndex by viewModel.currentDialogueTurnIndex.collectAsState()
+    val isCompleted by viewModel.dialogueCompleted.collectAsState()
+    val currentScenario = viewModel.getCurrentScenario()
+    val currentTurn = viewModel.getCurrentDialogueTurn()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Выбор сценария
+        ElevatedCard(
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(18.dp)
+                )
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Сценарии общения РКИ",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Ролевые диалоги погружения",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = currentScenario.targetLevel,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp)
+                ) {
+                    items(viewModel.dialogueScenarios) { scenario ->
+                        val isSelected = scenario.id == selectedScenarioId
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = if (isSelected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+                            modifier = Modifier
+                                .clickable { viewModel.selectScenario(scenario.id) }
+                                .testTag("scenario_card_${scenario.id}")
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Text(text = scenario.emoji, fontSize = 22.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = scenario.title,
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                        ),
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = scenario.location,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Лента реплик диалога (Чат)
+        ElevatedCard(
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(22.dp)
+                )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "📍 ${currentScenario.location}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    Text(
+                        text = "Реплика ${(currentTurnIndex + 1).coerceAtMost(currentScenario.turns.size)} из ${currentScenario.turns.size}",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // История реплик
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    currentScenario.turns.forEachIndexed { index, turn ->
+                        val isPastTurn = index < currentTurnIndex
+                        val isCurrent = index == currentTurnIndex
+
+                        if (isPastTurn || isCurrent) {
+                            val isKesha = turn.speaker == SpeakerRole.KESHA
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = if (isKesha) Arrangement.Start else Arrangement.End
+                            ) {
+                                if (isKesha) {
+                                    Text(text = "🦜", fontSize = 24.sp, modifier = Modifier.padding(top = 4.dp, end = 6.dp))
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(
+                                        topStart = 16.dp,
+                                        topEnd = 16.dp,
+                                        bottomStart = if (isKesha) 2.dp else 16.dp,
+                                        bottomEnd = if (isKesha) 16.dp else 2.dp
+                                    ),
+                                    color = if (isKesha) {
+                                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                                    } else {
+                                        if (isCurrent) MaterialTheme.colorScheme.primaryContainer else Color(0xFFD1FAE5)
+                                    },
+                                    border = if (isCurrent) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+                                    modifier = Modifier.fillMaxWidth(0.85f)
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = if (isKesha) "Кеша" else "Ты",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                                color = if (isKesha) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
+                                            IconButton(
+                                                onClick = { viewModel.speakText(turn.ttsText) },
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.VolumeUp,
+                                                    contentDescription = "Озвучить реплику",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            text = turn.text,
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        if (turn.phoneticTip.isNotBlank() && isCurrent) {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "💡 ${turn.phoneticTip}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                                if (!isKesha) {
+                                    Text(text = "👤", fontSize = 24.sp, modifier = Modifier.padding(top = 4.dp, start = 6.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Блок действий текущей реплики
+        if (isCompleted) {
+            ElevatedCard(
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                ),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(
+                        width = 1.5.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(22.dp)
+                    )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(text = "🎉", fontSize = 48.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Диалог успешно завершён!",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Ты отлично справился с живой речью в ситуации «${currentScenario.title}»! Начислено +30 XP.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { viewModel.resetDialogue() },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("btn_dialogue_reset"),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Replay, contentDescription = "Повторить")
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Повторить")
+                        }
+                        Button(
+                            onClick = {
+                                val nextId = if (selectedScenarioId < viewModel.dialogueScenarios.size) selectedScenarioId + 1 else 1
+                                viewModel.selectScenario(nextId)
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("btn_dialogue_next_scenario"),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Дальше")
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(imageVector = Icons.Default.ArrowForward, contentDescription = "Следующий сценарий")
+                        }
+                    }
+                }
+            }
+        } else if (currentTurn != null) {
+            ElevatedCard(
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(22.dp)
+                    )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if (currentTurn.speaker == SpeakerRole.KESHA) {
+                        Text(
+                            text = "Собеседник говорит:",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "«${currentTurn.text}»",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            FilledTonalButton(
+                                onClick = { viewModel.speakCurrentDialogueTurn() },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .testTag("btn_dialogue_listen_kesha"),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.VolumeUp, contentDescription = "Слушать")
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Послушать")
+                            }
+                            Button(
+                                onClick = { viewModel.nextDialogueTurn() },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .testTag("btn_dialogue_next_turn"),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Ответить")
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(imageVector = Icons.Default.ArrowForward, contentDescription = "Перейти к ответу")
+                            }
+                        }
+                    } else {
+                        // User's turn
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Text(
+                                text = "Твоя очередь ответить! 👤",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+
+                        Text(
+                            text = currentTurn.text,
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black),
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center
+                        )
+
+                        if (currentTurn.phoneticTip.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = currentTurn.phoneticTip,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Demonstration
+                        FilledTonalButton(
+                            onClick = { viewModel.speakCurrentDialogueTurn() },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .testTag("btn_dialogue_sample"),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.VolumeUp, contentDescription = "Образец речи")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Послушать образец речи")
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Mic + Confirmation buttons
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Button(
+                                onClick = onStartListening,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isListeningSpeech) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(52.dp)
+                                    .testTag("btn_dialogue_mic_repeat"),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isListeningSpeech) Icons.Default.MicNone else Icons.Default.Mic,
+                                    contentDescription = "Микрофон"
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isListeningSpeech) "Слушаю..." else "Сказать",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+
+                            FilledTonalButton(
+                                onClick = { viewModel.onUserSpokeDialogueTurn(isDirectConfirmation = true) },
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = Color(0xFFD1FAE5),
+                                    contentColor = Color(0xFF065F46)
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(52.dp)
+                                    .testTag("btn_dialogue_confirm_repeat"),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Подтвердить")
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Я сказал!",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+                        }
+
+                        if (recognizedSpokenText.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Распознано: «$recognizedSpokenText»",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
         }
     }

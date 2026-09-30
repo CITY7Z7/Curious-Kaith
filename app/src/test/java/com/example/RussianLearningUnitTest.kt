@@ -1,9 +1,11 @@
 package com.example
 
 import com.example.data.AlphabetData
+import com.example.data.DialogueData
 import com.example.data.DictionaryData
 import com.example.data.GamificationData
 import com.example.data.ParrotLessonData
+import com.example.data.SpeakerRole
 import com.example.data.model.LetterType
 import com.example.data.model.UserProgress
 import org.junit.Assert.assertEquals
@@ -74,5 +76,25 @@ class RussianLearningUnitTest {
         val currentUser = board.find { it.isCurrentUser }
         assertTrue("Current user must be on leaderboard", currentUser != null)
         assertEquals("Current user XP must match", 500, currentUser?.xp)
+    }
+
+    @Test
+    fun testDialogueScenariosCompleteness() {
+        assertEquals("Must contain 6 real-life dialogue scenarios", 6, DialogueData.scenarios.size)
+        for (scenario in DialogueData.scenarios) {
+            assertTrue("Scenario title must not be empty", scenario.title.isNotBlank())
+            assertTrue("Scenario location must not be empty", scenario.location.isNotBlank())
+            assertTrue("Scenario must have at least 4 turns", scenario.turns.size >= 4)
+
+            val hasKesha = scenario.turns.any { it.speaker == SpeakerRole.KESHA }
+            val hasUser = scenario.turns.any { it.speaker == SpeakerRole.USER }
+            assertTrue("Scenario must have Kesha speaker", hasKesha)
+            assertTrue("Scenario must have User speaker", hasUser)
+
+            for (turn in scenario.turns) {
+                assertTrue("Turn text must not be blank", turn.text.isNotBlank())
+                assertTrue("TTS text must not be blank", turn.ttsText.isNotBlank())
+            }
+        }
     }
 }

@@ -5,8 +5,12 @@ import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.AlphabetData
+import com.example.data.DialogueData
+import com.example.data.DialogueScenario
+import com.example.data.DialogueTurn
 import com.example.data.GamificationData
 import com.example.data.ParrotLessonData
+import com.example.data.SpeakerRole
 import com.example.data.db.AppDatabase
 import com.example.data.model.BadgeItem
 import com.example.data.model.DictionaryWord
@@ -100,6 +104,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _consecutiveStreak = MutableStateFlow(0)
     val consecutiveStreak: StateFlow<Int> = _consecutiveStreak.asStateFlow()
 
+    // Interactive Dialogues state (Level 5)
+    val dialogueScenarios: List<DialogueScenario> = DialogueData.scenarios
+    private val _selectedScenarioId = MutableStateFlow(1)
+    val selectedScenarioId: StateFlow<Int> = _selectedScenarioId.asStateFlow()
+
+    private val _currentDialogueTurnIndex = MutableStateFlow(0)
+    val currentDialogueTurnIndex: StateFlow<Int> = _currentDialogueTurnIndex.asStateFlow()
+
+    private val _dialogueCompleted = MutableStateFlow(false)
+    val dialogueCompleted: StateFlow<Boolean> = _dialogueCompleted.asStateFlow()
+
     // Dictionary filter states
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -149,8 +164,137 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _currentLevel.value = level
         _currentLessonIndex.value = 0
         _parrotMood.value = ParrotMood.NEUTRAL
-        val lesson = getCurrentLesson()
-        _parrotMessage.value = "Уровень $level. Послушай и повтори: ${lesson.targetText}"
+        if (level == 5) {
+            val scenario = getCurrentScenario()
+            _parrotMessage.value = "Живой диалог: ${scenario.title}. Нажми «Слушать реплику»!"
+            resetDialogue()
+        } else {
+            val lesson = getCurrentLesson()
+            _parrotMessage.value = "Уровень $level. Послушай и повтори: ${lesson.targetText}"
+        }
+    }
+
+    // ================= ДИАЛОГОВЫЕ МЕТОДЫ (УРОВЕНЬ 5) =================
+    fun getCurrentScenario(): DialogueScenario {
+        return dialogueScenarios.find { it.id == _selectedScenarioId.value } ?: dialogueScenarios.first()
+    }
+
+    fun getCurrentDialogueTurn(): DialogueTurn? {
+        val scenario = getCurrentScenario()
+        val idx = _currentDialogueTurnIndex.value
+        return scenario.turns.getOrNull(idx)
+    }
+
+    fun selectScenario(scenarioId: Int) {
+        _selectedScenarioId.value = scenarioId
+        resetDialogue()
+        val scenario = getCurrentScenario()
+        _parrotMessage.value = "Сценарий: «${scenario.title}». Нажми «Слушать реплику» собеседника."
+        val firstTurn = scenario.turns.firstOrNull()
+        if (firstTurn?.speaker == SpeakerRole.KESHA) {
+            speakCurrentDialogueTurn()
+        }
+    }
+
+    fun resetDialogue() {
+        _currentDialogueTurnIndex.value = 0
+        _dialogueCompleted.value = false
+        _parrotMood.value = ParrotMood.NEUTRAL
+    }
+
+    fun speakCurrentDialogueTurn() {
+        val turn = getCurrentDialogueTurn() ?: return
+        _parrotMood.value = ParrotMood.SPEAKING
+        if (turn.speaker == SpeakerRole.KESHA) {
+            _parrotMessage.value = "Кеша говорит:\n«${turn.text}»"
+            ttsManager.speak(turn.ttsText) {
+                // When Kesha finishes speaking, if the next turn is user, set mood to LISTENING
+                val nextTurn = getCurrentScenario().turns.getOrNull(_currentDialogueTurnIndex.value + 1)
+                if (nextTurn?.speaker == SpeakerRole.USER) {
+                    _parrotMood.value = ParrotMood.LISTENING
+                } else {
+                    _parrotMood.value = ParrotMood.NEUTRAL
+                }
+            }
+        } else {
+            // Demonstrating how the user should pronounce their line
+            _parrotMessage.value = "Образец речи:\n«${turn.text}»"
+            ttsManager.speak(turn.ttsText) {
+                _parrotMood.value = ParrotMood.LISTENING
+            }
+        }
+    }
+
+    fun onUserSpokeDialogueTurn(spokenText: String? = null, isDirectConfirmation: Boolean = false) {
+        val currentTurn = getCurrentDialogueTurn() ?: return
+        val scenario = getCurrentScenario()
+
+        val isCorrect = if (isDirectConfirmation) {
+            true
+        } else if (!spokenText.isNullOrBlank()) {
+            val cleanTarget = currentTurn.text.lowercase().replace("[^а-яё0-9 ]".toRegex(), " ").trim()
+            val cleanSpoken = spokenText.lowercase().replace("[^а-яё0-9 ]".toRegex(), " ").trim()
+            cleanSpoken.contains(cleanTarget) || cleanTarget.contains(cleanSpoken) ||
+                    calculateSimilarity(cleanTarget, cleanSpoken) > 0.45
+        } else {
+            true
+        }
+
+        if (isCorrect) {
+            _parrotMood.value = ParrotMood.HAPPY
+            val nextIndex = _currentDialogueTurnIndex.value + 1
+
+            if (nextIndex >= scenario.turns.size) {
+                // Completed entire dialogue!
+                _currentDialogueTurnIndex.value = scenario.turns.size
+                _dialogueCompleted.value = true
+                _consecutiveStreak.value += 1
+                _parrotMessage.value = "🎉 Великолепно! Диалог «${scenario.title}» успешно завершён!\n+30 Опыта (XP)!"
+                ttsManager.speak("Браво! Диалог завершён! Ты говоришь по-русски великолепно!")
+                viewModelScope.launch {
+                    repository.addXp(30, 2)
+                }
+            } else {
+                _currentDialogueTurnIndex.value = nextIndex
+                _parrotMessage.value = "Отличная реплика! Диалог продолжается."
+                viewModelScope.launch {
+                    repository.addXp(10, 1)
+                }
+                val nextTurn = scenario.turns[nextIndex]
+                if (nextTurn.speaker == SpeakerRole.KESHA) {
+                    // Auto-speak Kesha's reaction/answer
+                    speakCurrentDialogueTurn()
+                } else {
+                    _parrotMood.value = ParrotMood.LISTENING
+                }
+            }
+        } else {
+            _parrotMood.value = ParrotMood.TRY_AGAIN
+            _parrotMessage.value = "Попробуй ещё раз! Повтори реплику чётко:\n«${currentTurn.text}»"
+            ttsManager.speak("Попробуй ещё раз: ${currentTurn.ttsText}")
+        }
+    }
+
+    fun nextDialogueTurn() {
+        val scenario = getCurrentScenario()
+        if (_currentDialogueTurnIndex.value < scenario.turns.size - 1) {
+            _currentDialogueTurnIndex.value += 1
+            val turn = getCurrentDialogueTurn()
+            if (turn?.speaker == SpeakerRole.KESHA) {
+                speakCurrentDialogueTurn()
+            }
+        }
+    }
+
+    fun prevDialogueTurn() {
+        if (_currentDialogueTurnIndex.value > 0) {
+            _currentDialogueTurnIndex.value -= 1
+            _dialogueCompleted.value = false
+            val turn = getCurrentDialogueTurn()
+            if (turn?.speaker == SpeakerRole.KESHA) {
+                speakCurrentDialogueTurn()
+            }
+        }
     }
 
     fun nextLesson() {

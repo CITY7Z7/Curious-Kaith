@@ -132,6 +132,7 @@
     │   │   │   ├── MainActivity.kt    # Единственная Activity, хост для Scaffold и навигации
     │   │   │   ├── data/              # Слой данных
     │   │   │   │   ├── AlphabetData.kt
+    │   │   │   │   ├── DialogueData.kt
     │   │   │   │   ├── DictionaryData.kt
     │   │   │   │   ├── GamificationData.kt
     │   │   │   │   ├── ParrotLessonData.kt
