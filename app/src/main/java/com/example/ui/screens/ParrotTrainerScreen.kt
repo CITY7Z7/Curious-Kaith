@@ -98,6 +98,10 @@ import com.example.data.MinimalPairWord
 import com.example.data.MinimalPairsData
 import com.example.data.ContrastCategory
 import com.example.data.SpeakerRole
+import com.example.data.SpeechMatrixData
+import com.example.data.SpeechMatrixItem
+import com.example.data.MatrixSlotOption
+import com.example.data.GrammarFocus
 import com.example.data.model.LessonItem
 import com.example.ui.MainViewModel
 import com.example.ui.ParrotMood
@@ -160,6 +164,8 @@ fun ParrotTrainerScreen(
                         viewModel.onUserRepeatedIntonation(spokenText = spoken)
                     } else if (currentLevel == 7) {
                         viewModel.onUserRepeatedPairWord(spokenText = spoken)
+                    } else if (currentLevel == 8) {
+                        viewModel.onUserRepeatedMatrix(spokenText = spoken)
                     } else {
                         viewModel.onUserRepeated(spokenText = spoken)
                     }
@@ -254,7 +260,8 @@ fun ParrotTrainerScreen(
                 4 to "4. Разговор",
                 5 to "5. Диалоги 🎭",
                 6 to "6. Интонация 🎵",
-                7 to "7. Контрасты ⚡"
+                7 to "7. Контрасты ⚡",
+                8 to "8. Матрицы 🧩"
             )
 
             ScrollableTabRow(
@@ -328,6 +335,24 @@ fun ParrotTrainerScreen(
             )
         } else if (currentLevel == 7) {
             MinimalPairsTrainerSection(
+                viewModel = viewModel,
+                isListeningSpeech = isListeningSpeech,
+                recognizedSpokenText = recognizedSpokenText,
+                onStartListening = {
+                    if (ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        startSpeechRecognition(context, speechRecognizer)
+                        isListeningSpeech = true
+                    } else {
+                        recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                }
+            )
+        } else if (currentLevel == 8) {
+            MatrixTrainerSection(
                 viewModel = viewModel,
                 isListeningSpeech = isListeningSpeech,
                 recognizedSpokenText = recognizedSpokenText,
@@ -1899,6 +1924,380 @@ private fun MinimalPairsTrainerSection(
                             .weight(1f)
                             .height(52.dp)
                             .testTag("btn_pair_confirm"),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Я повторил!")
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Я повторил!",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+
+                if (recognizedSpokenText.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Распознано: «$recognizedSpokenText»",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MatrixTrainerSection(
+    viewModel: MainViewModel,
+    isListeningSpeech: Boolean,
+    recognizedSpokenText: String,
+    onStartListening: () -> Unit
+) {
+    val selectedMatrixId by viewModel.selectedMatrixId.collectAsState()
+    val selectedSlotId by viewModel.selectedSlotId.collectAsState()
+    val matrices = viewModel.speechMatrices
+    val currentMatrix = viewModel.getCurrentMatrix()
+    val currentSlot = viewModel.getCurrentSlot()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+    ) {
+        // Заголовок карточки
+        ElevatedCard(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(20.dp)
+                )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = CircleShape,
+                        modifier = Modifier.size(42.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(text = "🧩", fontSize = 22.sp)
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Грамматические матрицы РКИ",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Конструктор речевых формул без зазубривания правил",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Горизонтальный список матриц (тем)
+        Text(
+            text = "Выберите речевую модель:",
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
+        )
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(matrices) { matrix ->
+                val isSelected = matrix.id == selectedMatrixId
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    modifier = Modifier
+                        .clickable { viewModel.selectMatrix(matrix.id) }
+                        .testTag("chip_matrix_${matrix.id}")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Text(text = matrix.category.badgeEmoji, fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = matrix.title,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Карточка текущей формулы и педагогической подсказки
+        ElevatedCard(
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(22.dp)
+                )
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                // Строка каркаса формулы
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    ) {
+                        Text(
+                            text = currentMatrix.category.title,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+
+                    Text(
+                        text = currentMatrix.category.formula,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Наглядный каркас с вопросом
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = currentMatrix.framePrefix,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                        ) {
+                            Text(
+                                text = currentMatrix.frameQuestion,
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Педагогический комментарий
+                Text(
+                    text = currentMatrix.pedagogicalNote,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Интерактивные чипы слотов подстановки
+                Text(
+                    text = "Выберите слово для подстановки:",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(currentMatrix.options) { option ->
+                        val isSlotSelected = option.slotId == selectedSlotId
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSlotSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                contentColor = if (isSlotSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                            ),
+                            border = if (isSlotSelected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+                            modifier = Modifier
+                                .clickable { viewModel.selectSlot(option.slotId) }
+                                .testTag("slot_option_${option.slotId}")
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = option.slotWord,
+                                    style = MaterialTheme.typography.labelLarge.copy(
+                                        fontWeight = if (isSlotSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                )
+                                Text(
+                                    text = option.slotStressMarked,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isSlotSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Карточка результирующей фразы
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = currentSlot.fullSentenceTts,
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = (-0.3).sp
+                            ),
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = currentSlot.meaningRu,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+                        ) {
+                            Text(
+                                text = "💡 ${currentSlot.grammaticalHint}",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Кнопка образца синтеза
+                OutlinedButton(
+                    onClick = { viewModel.speakCurrentMatrixSentence() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("btn_matrix_listen"),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.VolumeUp, contentDescription = "Послушать образец")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Послушать эталон Кеши 🦜",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Кнопки записи голоса и подтверждения
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = onStartListening,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isListeningSpeech) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                            .testTag("btn_matrix_mic"),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isListeningSpeech) Icons.Default.MicNone else Icons.Default.Mic,
+                            contentDescription = "Микрофон"
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isListeningSpeech) "Слушаю..." else "Повторить фразой",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+
+                    FilledTonalButton(
+                        onClick = { viewModel.onUserRepeatedMatrix("") },
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color(0xFFD1FAE5),
+                            contentColor = Color(0xFF065F46)
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                            .testTag("btn_matrix_confirm"),
                         shape = RoundedCornerShape(14.dp)
                     ) {
                         Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Я повторил!")

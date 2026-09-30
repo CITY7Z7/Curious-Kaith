@@ -10,6 +10,8 @@ import com.example.data.IntonationType
 import com.example.data.MinimalPairsData
 import com.example.data.ParrotLessonData
 import com.example.data.SpeakerRole
+import com.example.data.SpeechMatrixData
+import com.example.data.GrammarFocus
 import com.example.data.model.LetterType
 import com.example.data.model.UserProgress
 import org.junit.Assert.assertEquals
@@ -146,6 +148,32 @@ class RussianLearningUnitTest {
             assertTrue("Phonetic role B must not be blank", pair.wordB.phoneticRole.isNotBlank())
             assertTrue("Pedagogical explanation must not be blank", pair.pedagogicalExplanation.isNotBlank())
             assertTrue("Word A and Word B must differ", pair.wordA.word != pair.wordB.word)
+        }
+    }
+
+    @Test
+    fun testSpeechMatricesCompleteness() {
+        assertEquals("Must contain 6 key speech pattern matrices", 6, SpeechMatrixData.matrices.size)
+
+        val categories = SpeechMatrixData.matrices.map { it.category }.toSet()
+        assertEquals("All 6 GrammarFocus categories must be covered", 6, categories.size)
+
+        for (matrix in SpeechMatrixData.matrices) {
+            assertTrue("Matrix title must not be blank", matrix.title.isNotBlank())
+            assertTrue("Frame prefix must not be blank", matrix.framePrefix.isNotBlank())
+            assertTrue("Frame question must not be blank", matrix.frameQuestion.isNotBlank())
+            assertTrue("Pedagogical note must not be blank", matrix.pedagogicalNote.isNotBlank())
+            assertTrue("Matrix must have at least 5 slot substitution options", matrix.options.size >= 5)
+
+            for (option in matrix.options) {
+                assertTrue("Slot word must not be blank", option.slotWord.isNotBlank())
+                assertTrue("Slot stress marked must not be blank", option.slotStressMarked.isNotBlank())
+                assertTrue("Full sentence must not be blank", option.fullSentence.isNotBlank())
+                assertTrue("Full sentence TTS must not be blank", option.fullSentenceTts.isNotBlank())
+                assertTrue("Meaning RU must not be blank", option.meaningRu.isNotBlank())
+                assertTrue("Grammatical hint must not be blank", option.grammaticalHint.isNotBlank())
+                assertTrue("Full sentence must contain slot word", option.fullSentence.contains(option.slotWord))
+            }
         }
     }
 }

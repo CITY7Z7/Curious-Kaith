@@ -138,6 +138,7 @@
     │   │   │   │   ├── IntonationData.kt
     │   │   │   │   ├── MinimalPairsData.kt
     │   │   │   │   ├── ParrotLessonData.kt
+    │   │   │   │   ├── SpeechMatrixData.kt
     │   │   │   │   ├── db/
     │   │   │   │   │   ├── AppDatabase.kt
     │   │   │   │   │   └── Daos.kt

@@ -19,6 +19,10 @@ import com.example.data.MinimalPairsData
 import com.example.data.ContrastCategory
 import com.example.data.ParrotLessonData
 import com.example.data.SpeakerRole
+import com.example.data.SpeechMatrixData
+import com.example.data.SpeechMatrixItem
+import com.example.data.MatrixSlotOption
+import com.example.data.GrammarFocus
 import com.example.data.db.AppDatabase
 import com.example.data.model.BadgeItem
 import com.example.data.model.DictionaryWord
@@ -142,6 +146,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedWordOption = MutableStateFlow("A") // "A" or "B"
     val selectedWordOption: StateFlow<String> = _selectedWordOption.asStateFlow()
 
+    // Speech Matrix state (Level 8)
+    val speechMatrices: List<SpeechMatrixItem> = SpeechMatrixData.matrices
+    private val _selectedMatrixId = MutableStateFlow(1)
+    val selectedMatrixId: StateFlow<Int> = _selectedMatrixId.asStateFlow()
+
+    private val _selectedSlotId = MutableStateFlow(1)
+    val selectedSlotId: StateFlow<Int> = _selectedSlotId.asStateFlow()
+
     // Dictionary filter states
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -203,6 +215,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val pair = getCurrentPair()
             _parrotMessage.value = "Контрасты: ${pair.contrastKey} («${pair.wordA.word}» vs «${pair.wordB.word}»). Послушай разницу!"
             speakPairWord("A")
+        } else if (level == 8) {
+            val matrix = getCurrentMatrix()
+            val slot = getCurrentSlot()
+            _parrotMessage.value = "Матрицы РКИ: ${matrix.title}. Подстановка «${slot.slotWord}». Послушай формулу!"
+            speakCurrentMatrixSentence()
         } else {
             val lesson = getCurrentLesson()
             _parrotMessage.value = "Уровень $level. Послушай и повтори: ${lesson.targetText}"
@@ -287,6 +304,70 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _parrotMood.value = ParrotMood.TRY_AGAIN
             _parrotMessage.value = "Попробуй ещё раз! Внимание на артикуляцию:\n${targetWord.articulationHint}"
             ttsManager.speak("Послушай ещё раз: ${targetWord.stressMarked}")
+        }
+    }
+
+    // ================= РЕЧЕВЫЕ МАТРИЦЫ РКИ (УРОВЕНЬ 8) =================
+    fun getCurrentMatrix(): SpeechMatrixItem {
+        return speechMatrices.find { it.id == _selectedMatrixId.value } ?: speechMatrices.first()
+    }
+
+    fun getCurrentSlot(): MatrixSlotOption {
+        val matrix = getCurrentMatrix()
+        return matrix.options.find { it.slotId == _selectedSlotId.value } ?: matrix.options.first()
+    }
+
+    fun selectMatrix(matrixId: Int) {
+        _selectedMatrixId.value = matrixId
+        _selectedSlotId.value = 1
+        val matrix = getCurrentMatrix()
+        val slot = getCurrentSlot()
+        _parrotMood.value = ParrotMood.NEUTRAL
+        _parrotMessage.value = "Матрица: ${matrix.title}.\nСлот: «${slot.slotWord}». Послушай целую фразу!"
+        speakCurrentMatrixSentence()
+    }
+
+    fun selectSlot(slotId: Int) {
+        _selectedSlotId.value = slotId
+        val matrix = getCurrentMatrix()
+        val slot = getCurrentSlot()
+        _parrotMood.value = ParrotMood.NEUTRAL
+        _parrotMessage.value = "Подстановка: «${slot.slotWord}»\n${slot.grammaticalHint}"
+        speakCurrentMatrixSentence()
+    }
+
+    fun speakCurrentMatrixSentence() {
+        val slot = getCurrentSlot()
+        _parrotMood.value = ParrotMood.SPEAKING
+        _parrotMessage.value = "«${slot.fullSentence}»\n${slot.meaningRu}"
+        ttsManager.speak(slot.fullSentenceTts) {
+            _parrotMood.value = ParrotMood.LISTENING
+        }
+    }
+
+    fun onUserRepeatedMatrix(spokenText: String) {
+        val slot = getCurrentSlot()
+        val isCorrect = if (spokenText.isNotBlank()) {
+            val cleanTarget = slot.fullSentence.lowercase().replace("[^а-яё]".toRegex(), "").trim()
+            val cleanSpoken = spokenText.lowercase().replace("[^а-яё]".toRegex(), "").trim()
+            cleanSpoken.contains(cleanTarget) || cleanTarget.contains(cleanSpoken) ||
+                    calculateSimilarity(cleanTarget, cleanSpoken) > 0.40
+        } else {
+            true
+        }
+
+        if (isCorrect) {
+            _parrotMood.value = ParrotMood.HAPPY
+            _consecutiveStreak.value += 1
+            _parrotMessage.value = "Великолепно! Фраза освоена:\n«${slot.fullSentence}»!\n+12 Опыта (XP)!"
+            ttsManager.speak("Отлично! Правильная конструкция!")
+            viewModelScope.launch {
+                repository.addXp(12, 1)
+            }
+        } else {
+            _parrotMood.value = ParrotMood.TRY_AGAIN
+            _parrotMessage.value = "Попробуй ещё раз! Подсказка грамматики:\n${slot.grammaticalHint}"
+            ttsManager.speak("Послушай образец: ${slot.fullSentenceTts}")
         }
     }
 
