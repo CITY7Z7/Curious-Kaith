@@ -12,6 +12,8 @@ import com.example.data.ParrotLessonData
 import com.example.data.SpeakerRole
 import com.example.data.SpeechMatrixData
 import com.example.data.GrammarFocus
+import com.example.data.TwisterData
+import com.example.data.TwisterType
 import com.example.data.model.LetterType
 import com.example.data.model.UserProgress
 import org.junit.Assert.assertEquals
@@ -173,6 +175,32 @@ class RussianLearningUnitTest {
                 assertTrue("Meaning RU must not be blank", option.meaningRu.isNotBlank())
                 assertTrue("Grammatical hint must not be blank", option.grammaticalHint.isNotBlank())
                 assertTrue("Full sentence must contain slot word", option.fullSentence.contains(option.slotWord))
+            }
+        }
+    }
+
+    @Test
+    fun testTwistersCompleteness() {
+        assertTrue("Must contain twisters", TwisterData.twisters.size >= 10)
+
+        val chistogovorki = TwisterData.twisters.filter { it.type == TwisterType.CHISTOGOVORKA }
+        val classicTwisters = TwisterData.twisters.filter { it.type == TwisterType.CLASSIC_TWISTER }
+
+        assertTrue("Must contain chistogovorki for sounds", chistogovorki.size >= 6)
+        assertTrue("Must contain classic tongue twisters", classicTwisters.size >= 4)
+
+        for (twister in TwisterData.twisters) {
+            assertTrue("Title must not be blank", twister.title.isNotBlank())
+            assertTrue("Target sound must not be blank", twister.targetSound.isNotBlank())
+            assertTrue("Rhyme lines must not be empty", twister.rhymeLines.isNotEmpty())
+            assertTrue("Full text must not be blank", twister.fullText.isNotBlank())
+            assertTrue("Full text TTS must not be blank", twister.fullTextTts.isNotBlank())
+            assertTrue("Pedagogical tip must not be blank", twister.pedagogicalTip.isNotBlank())
+            assertTrue("Fun meaning RU must not be blank", twister.funMeaningRu.isNotBlank())
+            assertTrue("Difficulty stars must be between 1 and 3", twister.difficultyStars in 1..3)
+
+            for (line in twister.rhymeLines) {
+                assertTrue("Line must not be blank", line.isNotBlank())
             }
         }
     }

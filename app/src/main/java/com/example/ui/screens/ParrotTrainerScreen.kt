@@ -102,6 +102,9 @@ import com.example.data.SpeechMatrixData
 import com.example.data.SpeechMatrixItem
 import com.example.data.MatrixSlotOption
 import com.example.data.GrammarFocus
+import com.example.data.TwisterData
+import com.example.data.TwisterItem
+import com.example.data.TwisterType
 import com.example.data.model.LessonItem
 import com.example.ui.MainViewModel
 import com.example.ui.ParrotMood
@@ -166,6 +169,8 @@ fun ParrotTrainerScreen(
                         viewModel.onUserRepeatedPairWord(spokenText = spoken)
                     } else if (currentLevel == 8) {
                         viewModel.onUserRepeatedMatrix(spokenText = spoken)
+                    } else if (currentLevel == 9) {
+                        viewModel.onUserRepeatedTwister(spokenText = spoken)
                     } else {
                         viewModel.onUserRepeated(spokenText = spoken)
                     }
@@ -261,7 +266,8 @@ fun ParrotTrainerScreen(
                 5 to "5. Диалоги 🎭",
                 6 to "6. Интонация 🎵",
                 7 to "7. Контрасты ⚡",
-                8 to "8. Матрицы 🧩"
+                8 to "8. Матрицы 🧩",
+                9 to "9. Скороговорки 🚀"
             )
 
             ScrollableTabRow(
@@ -353,6 +359,24 @@ fun ParrotTrainerScreen(
             )
         } else if (currentLevel == 8) {
             MatrixTrainerSection(
+                viewModel = viewModel,
+                isListeningSpeech = isListeningSpeech,
+                recognizedSpokenText = recognizedSpokenText,
+                onStartListening = {
+                    if (ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        startSpeechRecognition(context, speechRecognizer)
+                        isListeningSpeech = true
+                    } else {
+                        recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                }
+            )
+        } else if (currentLevel == 9) {
+            TwisterTrainerSection(
                 viewModel = viewModel,
                 isListeningSpeech = isListeningSpeech,
                 recognizedSpokenText = recognizedSpokenText,
@@ -2304,6 +2328,406 @@ fun MatrixTrainerSection(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Я повторил!",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+
+                if (recognizedSpokenText.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Распознано: «$recognizedSpokenText»",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TwisterTrainerSection(
+    viewModel: MainViewModel,
+    isListeningSpeech: Boolean,
+    recognizedSpokenText: String,
+    onStartListening: () -> Unit
+) {
+    val selectedTwisterId by viewModel.selectedTwisterId.collectAsState()
+    val selectedTwisterType by viewModel.selectedTwisterType.collectAsState()
+    val isFastSpeechMode by viewModel.isFastSpeechMode.collectAsState()
+    val twisters = viewModel.twistersList
+    val currentTwister = viewModel.getCurrentTwister()
+
+    val filteredTwisters = remember(selectedTwisterType) {
+        if (selectedTwisterType == null) twisters else twisters.filter { it.type == selectedTwisterType }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+    ) {
+        // Заголовок карточки раздела
+        ElevatedCard(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(20.dp)
+                )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        shape = CircleShape,
+                        modifier = Modifier.size(42.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(text = "🚀", fontSize = 22.sp)
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Чистоговорки и скороговорки",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Автоматизация звуков [Ж], [Ш], [Р], [Л], [Ц], [Ч], [Щ] и дикция",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Фильтры категорий
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            val filterOptions: List<Pair<TwisterType?, String>> = listOf(
+                null to "Все (12)",
+                TwisterType.CHISTOGOVORKA to "Чистоговорки 🎶",
+                TwisterType.CLASSIC_TWISTER to "Скороговорки ⚡"
+            )
+
+            filterOptions.forEach { (type, label) ->
+                val isSelected = selectedTwisterType == type
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                    ),
+                    modifier = Modifier
+                        .clickable { viewModel.selectTwisterType(type) }
+                        .testTag("filter_twister_${type?.name ?: "all"}")
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Горизонтальная лента скороговорок
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(filteredTwisters) { item ->
+                val isSelected = item.id == selectedTwisterId
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                    ),
+                    border = if (isSelected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+                    modifier = Modifier
+                        .clickable { viewModel.selectTwister(item.id) }
+                        .testTag("twister_item_${item.id}")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            modifier = Modifier.size(26.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = item.targetSound.replace("[", "").replace("]", ""),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = item.title,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Главная карточка выбранного упражнения
+        ElevatedCard(
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(22.dp)
+                )
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                // Строка звук + сложность + тип
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Text(
+                                text = "Звук: ${currentTwister.targetSound}",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+
+                        Text(
+                            text = "★".repeat(currentTwister.difficultyStars),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color(0xFFF59E0B)
+                        )
+                    }
+
+                    Text(
+                        text = currentTwister.type.title,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Текст чистоговорки / скороговорки
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.25f)
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        currentTwister.rhymeLines.forEach { line ->
+                            Text(
+                                text = line,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    lineHeight = 26.sp
+                                ),
+                                color = MaterialTheme.colorScheme.primary,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = currentTwister.funMeaningRu,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Совет логопеда и преподавателя РКИ
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.Top,
+                        modifier = Modifier.padding(12.dp)
+                    ) {
+                        Text(text = "💡", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = currentTwister.pedagogicalTip,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Переключатель темпа речи
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isFastSpeechMode) Color(0xFFFEF3C7) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.toggleSpeechSpeedMode() }
+                        .testTag("btn_twister_speed_toggle")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (isFastSpeechMode) "🚀" else "🐢",
+                                fontSize = 20.sp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = if (isFastSpeechMode) "Быстрый темп (1.25x)" else "Обучающий темп (0.8x)",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = if (isFastSpeechMode) Color(0xFF92400E) else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = if (isFastSpeechMode) "+25 XP за чистую скороговорку!" else "Чёткая артикуляция каждого слога (+15 XP)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isFastSpeechMode) Color(0xFFB45309) else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isFastSpeechMode) Color(0xFFF59E0B) else MaterialTheme.colorScheme.primary
+                        ) {
+                            Text(
+                                text = if (isFastSpeechMode) "МАСТЕР" else "УЧЁБА",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Кнопка эталонного воспроизведения
+                OutlinedButton(
+                    onClick = { viewModel.speakCurrentTwister() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("btn_twister_listen"),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.VolumeUp, contentDescription = "Послушать образец")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Послушать Кешу ${if (isFastSpeechMode) "🚀" else "🐢"}",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Кнопки микрофона и подтверждения
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = onStartListening,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isListeningSpeech) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                            .testTag("btn_twister_mic"),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isListeningSpeech) Icons.Default.MicNone else Icons.Default.Mic,
+                            contentDescription = "Микрофон"
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isListeningSpeech) "Слушаю..." else "Сказать вслух",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+
+                    FilledTonalButton(
+                        onClick = { viewModel.onUserRepeatedTwister("", isDirectConfirmation = true) },
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color(0xFFD1FAE5),
+                            contentColor = Color(0xFF065F46)
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                            .testTag("btn_twister_confirm"),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Я повторил!")
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Без запинки!",
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }

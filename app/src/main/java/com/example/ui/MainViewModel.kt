@@ -23,6 +23,9 @@ import com.example.data.SpeechMatrixData
 import com.example.data.SpeechMatrixItem
 import com.example.data.MatrixSlotOption
 import com.example.data.GrammarFocus
+import com.example.data.TwisterData
+import com.example.data.TwisterItem
+import com.example.data.TwisterType
 import com.example.data.db.AppDatabase
 import com.example.data.model.BadgeItem
 import com.example.data.model.DictionaryWord
@@ -154,6 +157,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedSlotId = MutableStateFlow(1)
     val selectedSlotId: StateFlow<Int> = _selectedSlotId.asStateFlow()
 
+    // Tongue Twisters state (Level 9)
+    val twistersList: List<TwisterItem> = TwisterData.twisters
+    private val _selectedTwisterType = MutableStateFlow<TwisterType?>(null)
+    val selectedTwisterType: StateFlow<TwisterType?> = _selectedTwisterType.asStateFlow()
+
+    private val _selectedTwisterId = MutableStateFlow(1)
+    val selectedTwisterId: StateFlow<Int> = _selectedTwisterId.asStateFlow()
+
+    private val _isFastSpeechMode = MutableStateFlow(false)
+    val isFastSpeechMode: StateFlow<Boolean> = _isFastSpeechMode.asStateFlow()
+
     // Dictionary filter states
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -220,6 +234,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val slot = getCurrentSlot()
             _parrotMessage.value = "Матрицы РКИ: ${matrix.title}. Подстановка «${slot.slotWord}». Послушай формулу!"
             speakCurrentMatrixSentence()
+        } else if (level == 9) {
+            val twister = getCurrentTwister()
+            _parrotMessage.value = "Скороговорка: ${twister.title} (${twister.targetSound}). Послушай ритм и повтори!"
+            speakCurrentTwister()
         } else {
             val lesson = getCurrentLesson()
             _parrotMessage.value = "Уровень $level. Послушай и повтори: ${lesson.targetText}"
@@ -368,6 +386,78 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _parrotMood.value = ParrotMood.TRY_AGAIN
             _parrotMessage.value = "Попробуй ещё раз! Подсказка грамматики:\n${slot.grammaticalHint}"
             ttsManager.speak("Послушай образец: ${slot.fullSentenceTts}")
+        }
+    }
+
+    // ================= СКОРОГОВОРКИ И ЧИСТОГОВОРКИ (УРОВЕНЬ 9) =================
+    fun getCurrentTwister(): TwisterItem {
+        return twistersList.find { it.id == _selectedTwisterId.value } ?: twistersList.first()
+    }
+
+    fun selectTwisterType(type: TwisterType?) {
+        _selectedTwisterType.value = type
+        val firstOfType = if (type == null) twistersList.first() else twistersList.firstOrNull { it.type == type } ?: twistersList.first()
+        _selectedTwisterId.value = firstOfType.id
+        _parrotMood.value = ParrotMood.NEUTRAL
+        _parrotMessage.value = "Категория: ${firstOfType.type.title} (${firstOfType.targetSound}). Тренируем дикцию!"
+    }
+
+    fun selectTwister(twisterId: Int) {
+        _selectedTwisterId.value = twisterId
+        val twister = getCurrentTwister()
+        _parrotMood.value = ParrotMood.NEUTRAL
+        _parrotMessage.value = "${twister.title}: фокус на звук ${twister.targetSound}"
+        speakCurrentTwister()
+    }
+
+    fun toggleSpeechSpeedMode() {
+        _isFastSpeechMode.value = !_isFastSpeechMode.value
+        val speedText = if (_isFastSpeechMode.value) "Быстрый темп 🚀 (1.25x)" else "Обучающий темп 🐢 (0.8x)"
+        _parrotMessage.value = "Режим темпа: $speedText. Попробуем?"
+        speakCurrentTwister()
+    }
+
+    fun speakCurrentTwister() {
+        val twister = getCurrentTwister()
+        val originalRate = ttsManager.speechRate
+        val targetRate = if (_isFastSpeechMode.value) 1.25f else 0.8f
+        ttsManager.speechRate = targetRate
+        _parrotMood.value = ParrotMood.SPEAKING
+        _parrotMessage.value = "«${twister.fullText}»\n${twister.funMeaningRu}"
+        ttsManager.speak(twister.fullTextTts) {
+            ttsManager.speechRate = originalRate
+            _parrotMood.value = ParrotMood.LISTENING
+        }
+    }
+
+    fun onUserRepeatedTwister(spokenText: String, isDirectConfirmation: Boolean = false) {
+        val twister = getCurrentTwister()
+        val isCorrect = if (isDirectConfirmation) {
+            true
+        } else if (spokenText.isNotBlank()) {
+            val cleanTarget = twister.fullText.lowercase().replace("[^а-яё]".toRegex(), "").trim()
+            val cleanSpoken = spokenText.lowercase().replace("[^а-яё]".toRegex(), "").trim()
+            cleanSpoken.contains(cleanTarget) || cleanTarget.contains(cleanSpoken) ||
+                    calculateSimilarity(cleanTarget, cleanSpoken) > 0.35
+        } else {
+            true
+        }
+
+        val xpBonus = if (_isFastSpeechMode.value) 25 else 15
+
+        if (isCorrect) {
+            _parrotMood.value = ParrotMood.HAPPY
+            _consecutiveStreak.value += 1
+            val speedLabel = if (_isFastSpeechMode.value) "в быстром темпе 🚀" else "чётко и чисто 🎯"
+            _parrotMessage.value = "Браво! Скороговорка освоена $speedLabel!\n+$xpBonus Опыта (XP)!"
+            ttsManager.speak("Браво! Отличная дикция!")
+            viewModelScope.launch {
+                repository.addXp(xpBonus, 1)
+            }
+        } else {
+            _parrotMood.value = ParrotMood.TRY_AGAIN
+            _parrotMessage.value = "Попробуй ещё раз! Совет по артикуляции:\n${twister.pedagogicalTip}"
+            ttsManager.speak("Послушай ещё раз: ${twister.title}")
         }
     }
 
