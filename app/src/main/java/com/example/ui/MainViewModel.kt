@@ -9,6 +9,10 @@ import com.example.data.DialogueData
 import com.example.data.DialogueScenario
 import com.example.data.DialogueTurn
 import com.example.data.GamificationData
+import com.example.data.IntonationContrastSet
+import com.example.data.IntonationData
+import com.example.data.IntonationItem
+import com.example.data.IntonationType
 import com.example.data.ParrotLessonData
 import com.example.data.SpeakerRole
 import com.example.data.db.AppDatabase
@@ -115,6 +119,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _dialogueCompleted = MutableStateFlow(false)
     val dialogueCompleted: StateFlow<Boolean> = _dialogueCompleted.asStateFlow()
 
+    // Intonation Trainer state (Level 6)
+    val intonationContrastSets: List<IntonationContrastSet> = IntonationData.contrastSets
+    private val _selectedIntonationSetId = MutableStateFlow(1)
+    val selectedIntonationSetId: StateFlow<Int> = _selectedIntonationSetId.asStateFlow()
+
+    private val _selectedIntonationItemIndex = MutableStateFlow(0)
+    val selectedIntonationItemIndex: StateFlow<Int> = _selectedIntonationItemIndex.asStateFlow()
+
     // Dictionary filter states
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -168,9 +180,83 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val scenario = getCurrentScenario()
             _parrotMessage.value = "Живой диалог: ${scenario.title}. Нажми «Слушать реплику»!"
             resetDialogue()
+        } else if (level == 6) {
+            val item = getCurrentIntonationItem()
+            _parrotMessage.value = "Интонация: ${item.type.code} (${item.type.arrowSymbol}). Послушай мелодику фразы!"
+            speakCurrentIntonation()
         } else {
             val lesson = getCurrentLesson()
             _parrotMessage.value = "Уровень $level. Послушай и повтори: ${lesson.targetText}"
+        }
+    }
+
+    // ================= ИНТОНАЦИОННЫЕ МЕТОДЫ (УРОВЕНЬ 6) =================
+    fun getCurrentIntonationSet(): IntonationContrastSet {
+        return intonationContrastSets.find { it.id == _selectedIntonationSetId.value } ?: intonationContrastSets.first()
+    }
+
+    fun getCurrentIntonationItem(): IntonationItem {
+        val set = getCurrentIntonationSet()
+        val idx = _selectedIntonationItemIndex.value.coerceIn(0, (set.items.size - 1).coerceAtLeast(0))
+        return set.items[idx]
+    }
+
+    fun selectIntonationSet(setId: Int) {
+        _selectedIntonationSetId.value = setId
+        _selectedIntonationItemIndex.value = 0
+        val item = getCurrentIntonationItem()
+        _parrotMood.value = ParrotMood.NEUTRAL
+        _parrotMessage.value = "Набор «${getCurrentIntonationSet().baseTopic}»: ${item.type.code} ${item.type.arrowSymbol}"
+        speakCurrentIntonation()
+    }
+
+    fun selectIntonationItem(itemIndex: Int) {
+        val set = getCurrentIntonationSet()
+        _selectedIntonationItemIndex.value = itemIndex.coerceIn(0, set.items.size - 1)
+        val item = getCurrentIntonationItem()
+        _parrotMood.value = ParrotMood.NEUTRAL
+        _parrotMessage.value = "${item.type.code} (${item.type.title}): ${item.phraseText}"
+        speakCurrentIntonation()
+    }
+
+    fun speakCurrentIntonation() {
+        val item = getCurrentIntonationItem()
+        val originalPitch = ttsManager.speechPitch
+        _parrotMood.value = ParrotMood.SPEAKING
+        _parrotMessage.value = "${item.type.code}: «${item.phraseText}»\n${item.communicativeMeaning}"
+
+        ttsManager.speechPitch = item.speechPitch
+        ttsManager.speak(item.ttsText) {
+            ttsManager.speechPitch = originalPitch
+            _parrotMood.value = ParrotMood.LISTENING
+        }
+    }
+
+    fun onUserRepeatedIntonation(spokenText: String? = null, isDirectConfirmation: Boolean = false) {
+        val item = getCurrentIntonationItem()
+        val isCorrect = if (isDirectConfirmation) {
+            true
+        } else if (!spokenText.isNullOrBlank()) {
+            val cleanTarget = item.phraseText.lowercase().replace("[^а-яё ]".toRegex(), "").trim()
+            val cleanSpoken = spokenText.lowercase().replace("[^а-яё ]".toRegex(), "").trim()
+            cleanSpoken.contains(cleanTarget) || cleanTarget.contains(cleanSpoken) ||
+                    calculateSimilarity(cleanTarget, cleanSpoken) > 0.45
+        } else {
+            true
+        }
+
+        if (isCorrect) {
+            _parrotMood.value = ParrotMood.HAPPY
+            _consecutiveStreak.value += 1
+            _parrotMessage.value = "Браво! Прекрасная мелодика ${item.type.code} ${item.type.arrowSymbol}!\nТы отлично передал интонацию фразы!"
+            ttsManager.speak("Браво! Отличная интонация!")
+            viewModelScope.launch {
+                repository.addXp(15, 1)
+            }
+        } else {
+            _parrotMood.value = ParrotMood.TRY_AGAIN
+            _parrotMessage.value = "Слушай внимательно мелодику ${item.type.code} ${item.type.arrowSymbol}:\n«${item.phraseText}»"
+            ttsManager.speak("Послушай ещё раз: ${item.ttsText}")
         }
     }
 

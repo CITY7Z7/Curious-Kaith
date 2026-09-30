@@ -135,6 +135,7 @@
     │   │   │   │   ├── DialogueData.kt
     │   │   │   │   ├── DictionaryData.kt
     │   │   │   │   ├── GamificationData.kt
+    │   │   │   │   ├── IntonationData.kt
     │   │   │   │   ├── ParrotLessonData.kt
     │   │   │   │   ├── db/
     │   │   │   │   │   ├── AppDatabase.kt

@@ -4,6 +4,8 @@ import com.example.data.AlphabetData
 import com.example.data.DialogueData
 import com.example.data.DictionaryData
 import com.example.data.GamificationData
+import com.example.data.IntonationData
+import com.example.data.IntonationType
 import com.example.data.ParrotLessonData
 import com.example.data.SpeakerRole
 import com.example.data.model.LetterType
@@ -94,6 +96,30 @@ class RussianLearningUnitTest {
             for (turn in scenario.turns) {
                 assertTrue("Turn text must not be blank", turn.text.isNotBlank())
                 assertTrue("TTS text must not be blank", turn.ttsText.isNotBlank())
+            }
+        }
+    }
+
+    @Test
+    fun testIntonationContrastSetsCompleteness() {
+        assertTrue("Must contain contrast sets", IntonationData.contrastSets.size >= 5)
+        for (set in IntonationData.contrastSets) {
+            assertTrue("Set base topic must not be blank", set.baseTopic.isNotBlank())
+            assertTrue("Set must contain at least 3 intonation items", set.items.size >= 3)
+
+            val hasIK1 = set.items.any { it.type == IntonationType.IK1 }
+            val hasIK3 = set.items.any { it.type == IntonationType.IK3 }
+            assertTrue("Each set must have IK-1 (Statement)", hasIK1)
+            assertTrue("Each set must have IK-3 (Question)", hasIK3)
+
+            for (item in set.items) {
+                assertTrue("Phrase text must not be blank", item.phraseText.isNotBlank())
+                assertTrue("Center word must not be blank", item.centerWord.isNotBlank())
+                assertTrue("Pedagogical tip must not be blank", item.pedagogicalTip.isNotBlank())
+                assertTrue("Pitch points must have at least 3 points", item.pitchCurvePoints.size >= 3)
+                for (p in item.pitchCurvePoints) {
+                    assertTrue("Pitch point must be in range 0.0..1.0", p in 0f..1f)
+                }
             }
         }
     }

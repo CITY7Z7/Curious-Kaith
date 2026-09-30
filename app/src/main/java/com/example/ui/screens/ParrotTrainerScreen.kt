@@ -14,6 +14,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -69,8 +70,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -84,6 +89,10 @@ import com.example.R
 import com.example.data.DialogueData
 import com.example.data.DialogueScenario
 import com.example.data.DialogueTurn
+import com.example.data.IntonationContrastSet
+import com.example.data.IntonationData
+import com.example.data.IntonationItem
+import com.example.data.IntonationType
 import com.example.data.SpeakerRole
 import com.example.data.model.LessonItem
 import com.example.ui.MainViewModel
@@ -143,6 +152,8 @@ fun ParrotTrainerScreen(
                     recognizedSpokenText = spoken
                     if (currentLevel == 5) {
                         viewModel.onUserSpokeDialogueTurn(spokenText = spoken)
+                    } else if (currentLevel == 6) {
+                        viewModel.onUserRepeatedIntonation(spokenText = spoken)
                     } else {
                         viewModel.onUserRepeated(spokenText = spoken)
                     }
@@ -170,7 +181,7 @@ fun ParrotTrainerScreen(
 
     // Auto-pronounce lesson sound when opened or level changed (levels 1-4)
     LaunchedEffect(currentLesson.id, currentLevel) {
-        if (currentLevel != 5) {
+        if (currentLevel != 5 && currentLevel != 6) {
             viewModel.speakTargetLesson()
         }
     }
@@ -235,7 +246,8 @@ fun ParrotTrainerScreen(
                 2 to "2. Слова",
                 3 to "3. Глаголы",
                 4 to "4. Разговор",
-                5 to "5. Диалоги 🎭"
+                5 to "5. Диалоги 🎭",
+                6 to "6. Интонация 🎵"
             )
 
             ScrollableTabRow(
@@ -273,6 +285,24 @@ fun ParrotTrainerScreen(
 
         if (currentLevel == 5) {
             DialogueTrainerSection(
+                viewModel = viewModel,
+                isListeningSpeech = isListeningSpeech,
+                recognizedSpokenText = recognizedSpokenText,
+                onStartListening = {
+                    if (ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        startSpeechRecognition(context, speechRecognizer)
+                        isListeningSpeech = true
+                    } else {
+                        recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                }
+            )
+        } else if (currentLevel == 6) {
+            IntonationTrainerSection(
                 viewModel = viewModel,
                 isListeningSpeech = isListeningSpeech,
                 recognizedSpokenText = recognizedSpokenText,
@@ -1032,5 +1062,411 @@ private fun startSpeechRecognition(context: android.content.Context, speechRecog
         speechRecognizer.startListening(intent)
     } catch (e: Exception) {
         Toast.makeText(context, "Ошибка голосового ввода: ${e.message}", Toast.LENGTH_SHORT).show()
+    }
+}
+
+@Composable
+private fun IntonationTrainerSection(
+    viewModel: MainViewModel,
+    isListeningSpeech: Boolean,
+    recognizedSpokenText: String,
+    onStartListening: () -> Unit
+) {
+    val selectedSetId by viewModel.selectedIntonationSetId.collectAsState()
+    val selectedItemIndex by viewModel.selectedIntonationItemIndex.collectAsState()
+    val currentSet = viewModel.getCurrentIntonationSet()
+    val currentItem = viewModel.getCurrentIntonationItem()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Блок 1: Выбор темы контраста
+        ElevatedCard(
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(18.dp)
+                )
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Мелодика речи (Конструкции Брызгуновой)",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Один текст — разный смысл интонации",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.tertiaryContainer
+                    ) {
+                        Text(
+                            text = "Просодика",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp)
+                ) {
+                    items(viewModel.intonationContrastSets) { set ->
+                        val isSelected = set.id == selectedSetId
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = if (isSelected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+                            modifier = Modifier
+                                .clickable { viewModel.selectIntonationSet(set.id) }
+                                .testTag("intonation_set_${set.id}")
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
+                                Text(
+                                    text = set.baseTopic,
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    ),
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "${set.items.size} интонации",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Блок 2: Переключатель интонационных моделей в текущем наборе
+        ElevatedCard(
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(18.dp)
+                )
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = "Контраст смысла в ситуации: «${currentSet.baseTopic}»",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    currentSet.items.forEachIndexed { index, item ->
+                        val isSelected = index == selectedItemIndex
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { viewModel.selectIntonationItem(index) }
+                                .testTag("intonation_tab_${item.id}")
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 6.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "${item.type.code} ${item.type.arrowSymbol}",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = when (item.type) {
+                                        IntonationType.IK1 -> "Точка ↘"
+                                        IntonationType.IK3 -> "Вопрос ↗"
+                                        IntonationType.IK2 -> "Спец. ? ↗↘"
+                                        IntonationType.IK4 -> "А вопрос? ↘↗"
+                                        IntonationType.IK5 -> "Восторг! ↗↘"
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Блок 3: Интерактивный Canvas мелодической кривой тона (Pitch Curve / Melody Contour)
+        ElevatedCard(
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(22.dp)
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "График высоты тона (F0 Contour)",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Text(
+                            text = "Центр: «${currentItem.centerWord}» ${currentItem.type.arrowSymbol}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Графический холст кривой интонации
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFF0F172A))
+                ) {
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 24.dp, vertical = 16.dp)
+                    ) {
+                        val width = size.width
+                        val height = size.height
+                        val points = currentItem.pitchCurvePoints
+
+                        // Горизонтальные опорные линии сетки (низкий, средний, высокий регистры)
+                        drawLine(
+                            color = Color.White.copy(alpha = 0.15f),
+                            start = Offset(0f, height * 0.2f),
+                            end = Offset(width, height * 0.2f),
+                            strokeWidth = 1f
+                        )
+                        drawLine(
+                            color = Color.White.copy(alpha = 0.2f),
+                            start = Offset(0f, height * 0.5f),
+                            end = Offset(width, height * 0.5f),
+                            strokeWidth = 1f
+                        )
+                        drawLine(
+                            color = Color.White.copy(alpha = 0.15f),
+                            start = Offset(0f, height * 0.8f),
+                            end = Offset(width, height * 0.8f),
+                            strokeWidth = 1f
+                        )
+
+                        // Построение плавной кривой тона
+                        if (points.isNotEmpty()) {
+                            val path = Path()
+                            val stepX = width / (points.size - 1).coerceAtLeast(1)
+
+                            points.forEachIndexed { i, normalizedHeight ->
+                                val x = i * stepX
+                                val y = height * (1f - normalizedHeight).coerceIn(0.05f, 0.95f)
+                                if (i == 0) {
+                                    path.moveTo(x, y)
+                                } else {
+                                    val prevX = (i - 1) * stepX
+                                    val prevY = height * (1f - points[i - 1]).coerceIn(0.05f, 0.95f)
+                                    val controlX = (prevX + x) / 2f
+                                    path.cubicTo(controlX, prevY, controlX, y, x, y)
+                                }
+                            }
+
+                            // Отрисовка светящейся кривой тона
+                            drawPath(
+                                path = path,
+                                brush = Brush.horizontalGradient(
+                                    colors = listOf(
+                                        Color(0xFF38BDF8),
+                                        Color(0xFF818CF8),
+                                        Color(0xFF34D399)
+                                    )
+                                ),
+                                style = Stroke(width = 6f, cap = StrokeCap.Round)
+                            )
+
+                            // Отрисовка маркеров точек
+                            points.forEachIndexed { i, normalizedHeight ->
+                                val x = i * stepX
+                                val y = height * (1f - normalizedHeight).coerceIn(0.05f, 0.95f)
+                                val isPeak = i == points.indexOf(points.maxOrNull() ?: 0f)
+
+                                drawCircle(
+                                    color = if (isPeak) Color(0xFFFBBF24) else Color(0xFF38BDF8),
+                                    radius = if (isPeak) 8f else 5f,
+                                    center = Offset(x, y)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Крупный текст фразы
+                Text(
+                    text = currentItem.phraseText,
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Black,
+                        fontSize = 32.sp
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Описание коммуникативного смысла
+                Text(
+                    text = currentItem.communicativeMeaning,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Подсказка преподавателя
+                Text(
+                    text = "💡 ${currentItem.pedagogicalTip}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Кнопка шага 1: Слушать мелодику
+                FilledTonalButton(
+                    onClick = { viewModel.speakCurrentIntonation() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("btn_intonation_listen"),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.VolumeUp, contentDescription = "Слушать интонацию")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Шаг 1. Слушать мелодику ${currentItem.type.code} ${currentItem.type.arrowSymbol}",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Кнопки шага 2: Голос и подтверждение
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = onStartListening,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isListeningSpeech) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                            .testTag("btn_intonation_mic"),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isListeningSpeech) Icons.Default.MicNone else Icons.Default.Mic,
+                            contentDescription = "Микрофон"
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isListeningSpeech) "Слушаю..." else "Сказать",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+
+                    FilledTonalButton(
+                        onClick = { viewModel.onUserRepeatedIntonation(isDirectConfirmation = true) },
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color(0xFFD1FAE5),
+                            contentColor = Color(0xFF065F46)
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                            .testTag("btn_intonation_confirm"),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Я повторил!")
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Я повторил!",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+
+                if (recognizedSpokenText.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Распознано: «$recognizedSpokenText»",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
     }
 }
