@@ -104,58 +104,72 @@ class TtsManager(private val context: Context) : TextToSpeech.OnInitListener {
 
     /**
      * Нормализация текста перед передачей в системный TTS:
-     * 1. Устраняет баг «И-краткое» при синтезе одиночной буквы «Й».
-     * 2. Ставит ударение на «О» и «Ко», исключая редукцию до «Ка».
+     * 1. Устраняет редукцию «О» до «А» (принудительно передаёт контекст «Буква О»).
+     * 2. Устраняет баг «И-краткое» при синтезе «Й» (передаёт «Буква Й»).
+     * 3. Ставит ударение на «Ко», исключая редукцию до «Ка».
      */
     fun normalizePhonetics(rawText: String): String {
-        return when (rawText.trim()) {
-            "Й", "й" -> "Йот"
-            "Ко", "ко" -> "Кó"
-            "О", "о" -> "О́"
-            "Ы", "ы" -> "Ы́"
-            "Э", "э" -> "Э́"
+        val trimmed = rawText.trim()
+        return when {
+            trimmed.equals("О", ignoreCase = true) || trimmed == "О́" || trimmed == "о́" -> "Буква О"
+            trimmed.equals("Й", ignoreCase = true) || trimmed == "Йот" -> "Буква Й"
+            trimmed.equals("Ко", ignoreCase = true) -> "Кó"
+            trimmed.equals("Ы", ignoreCase = true) || trimmed == "Ы́" || trimmed == "ы́" -> "Буква Ы"
+            trimmed.equals("Э", ignoreCase = true) || trimmed == "Э́" || trimmed == "э́" -> "Буква Э"
+            trimmed.equals("Ъ", ignoreCase = true) -> "Твёрдый знак"
+            trimmed.equals("Ь", ignoreCase = true) -> "Мягкий знак"
             else -> rawText
         }
     }
 
     /**
      * Воспроизводит локальный зашитый аудиофайл из APK assets (offline, zero-network).
+     * Автоматически проверяет расширения (.opus, .mp3, .wav, .ogg, .m4a).
      * @return true если файл успешно найден и воспроизводится, false если файл отсутствует
      */
     fun playAssetAudio(assetRelativePath: String, onComplete: (() -> Unit)? = null): Boolean {
-        return try {
-            val afd = context.assets.openFd(assetRelativePath)
-            stop()
-            mediaPlayer = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .build()
-                )
-                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-                afd.close()
-                prepare()
-                _isSpeaking.value = true
-                setOnCompletionListener {
-                    _isSpeaking.value = false
-                    it.release()
-                    mediaPlayer = null
-                    onComplete?.invoke()
-                }
-                setOnErrorListener { mp, _, _ ->
-                    _isSpeaking.value = false
-                    mp.release()
-                    mediaPlayer = null
-                    false
-                }
-                start()
-            }
-            true
-        } catch (e: Exception) {
-            // Файл отсутствует в assets, используется fallback на синтез речи
-            false
+        val candidatePaths = mutableListOf(assetRelativePath)
+        val basePath = assetRelativePath.substringBeforeLast('.', assetRelativePath)
+        listOf(".mp3", ".wav", ".ogg", ".opus", ".m4a").forEach { ext ->
+            val p = "$basePath$ext"
+            if (!candidatePaths.contains(p)) candidatePaths.add(p)
         }
+
+        for (candidate in candidatePaths) {
+            try {
+                val afd = context.assets.openFd(candidate)
+                stop()
+                mediaPlayer = MediaPlayer().apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .build()
+                    )
+                    setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                    afd.close()
+                    prepare()
+                    _isSpeaking.value = true
+                    setOnCompletionListener {
+                        _isSpeaking.value = false
+                        it.release()
+                        mediaPlayer = null
+                        onComplete?.invoke()
+                    }
+                    setOnErrorListener { mp, _, _ ->
+                        _isSpeaking.value = false
+                        mp.release()
+                        mediaPlayer = null
+                        false
+                    }
+                    start()
+                }
+                return true
+            } catch (_: Exception) {
+                // Пробуем следующий путь кандидата
+            }
+        }
+        return false
     }
 
     /**

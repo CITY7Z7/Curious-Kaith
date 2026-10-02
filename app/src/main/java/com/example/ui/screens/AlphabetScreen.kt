@@ -404,6 +404,7 @@ fun AlphabetScreen(
             LetterDetailContent(
                 letter = letter,
                 onSpeak = { text -> viewModel.speakText(text) },
+                onPlayAudio = { viewModel.playLetterAudio(letter) },
                 onClose = { viewModel.selectLetter(null) }
             )
         }
@@ -504,6 +505,7 @@ fun MinimalLetterCard(
 fun LetterDetailContent(
     letter: LetterItem,
     onSpeak: (String) -> Unit,
+    onPlayAudio: () -> Unit = {},
     onClose: () -> Unit
 ) {
     Column(
@@ -567,14 +569,7 @@ fun LetterDetailContent(
                 }
 
                 IconButton(
-                    onClick = {
-                        val speechText = if (letter.isSign) {
-                            "${letter.letterName}. ${letter.description.substringBefore(".")}. Например: ${letter.examples.firstOrNull()?.word ?: ""}"
-                        } else {
-                            "Буква ${letter.letterName}. Звук ${letter.soundClean}. Например: ${letter.examples.firstOrNull()?.word ?: ""}"
-                        }
-                        onSpeak(speechText)
-                    },
+                    onClick = onPlayAudio,
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
@@ -598,7 +593,7 @@ fun LetterDetailContent(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             OutlinedButton(
-                onClick = { onSpeak("Буква ${letter.letterName}") },
+                onClick = onPlayAudio,
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier
                     .weight(1f)
@@ -614,7 +609,7 @@ fun LetterDetailContent(
 
             if (!letter.isSign) {
                 OutlinedButton(
-                    onClick = { onSpeak(letter.ttsFast) },
+                    onClick = onPlayAudio,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier
                         .weight(1f)

@@ -783,6 +783,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun playLetterAudio(letter: LetterItem) {
+        ttsManager.speakOrPlayAsset(letter.ttsFast, letter.audioAssetPath)
+    }
+
     fun speakLetterDetailed(letter: LetterItem) {
         val speechText = if (letter.isSign) {
             "${letter.letterName}. ${letter.description.substringBefore(".")}. Например: ${letter.examples.firstOrNull()?.word ?: ""}"
