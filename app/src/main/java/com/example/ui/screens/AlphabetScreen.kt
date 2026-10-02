@@ -567,7 +567,14 @@ fun LetterDetailContent(
                 }
 
                 IconButton(
-                    onClick = { onSpeak("${letter.letter}. ${letter.lowerLetter}") },
+                    onClick = {
+                        val speechText = if (letter.isSign) {
+                            "${letter.letterName}. ${letter.description.substringBefore(".")}. Например: ${letter.examples.firstOrNull()?.word ?: ""}"
+                        } else {
+                            "Буква ${letter.letterName}. Звук ${letter.soundClean}. Например: ${letter.examples.firstOrNull()?.word ?: ""}"
+                        }
+                        onSpeak(speechText)
+                    },
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
@@ -578,6 +585,46 @@ fun LetterDetailContent(
                         imageVector = Icons.Default.VolumeUp,
                         contentDescription = "Озвучить букву",
                         tint = Color.White
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Кнопки быстрого раздельного прослушивания: Название буквы и Звук
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = { onSpeak("Буква ${letter.letterName}") },
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("btn_speak_letter_name")
+            ) {
+                Icon(imageVector = Icons.Default.VolumeUp, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Буква: ${letter.letterName}",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+
+            if (!letter.isSign) {
+                OutlinedButton(
+                    onClick = { onSpeak(letter.ttsFast) },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("btn_speak_sound_pure")
+                ) {
+                    Icon(imageVector = Icons.Default.VolumeUp, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Звук: ${letter.soundClean}",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
                     )
                 }
             }

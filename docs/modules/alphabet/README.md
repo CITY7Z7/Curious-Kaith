@@ -12,7 +12,8 @@
 - `app/src/main/java/com/example/data/AlphabetData.kt`:
   - Полный реестр 33 букв русского алфавита (`List<LetterItem>`).
   - Классификация по `LetterType`: `VOWEL`, `CONSONANT_VOICED`, `CONSONANT_VOICELESS`, `SIGN`.
-  - Модель данных `LetterItem(letter, lowerLetter, sound, type, description, examples)`.
+  - Модель данных `LetterItem(letter, lowerLetter, sound, type, description, examples, letterName, ttsFast, soundClean, isSign, audioAssetPath)`.
+  - Точные фонетические настройки для автономного синтеза: устранение бага «И-краткое» (использование чистого «Йот» в спринте), явные знаки ударения для гласных (О́, Ы́, Э́) для предотвращения редукции, признак знака `isSign` для Ъ и Ь.
 
 ## 3. Бизнес-логика и сценарии
 - **Прогресс изучения**: При клике на букву вызывается `viewModel.onLetterTapped(letter)`, который озвучивает букву через `TtsManager` и передает событие в `RussianLearningRepository.recordLetterPracticed(letter, userProgress)`.

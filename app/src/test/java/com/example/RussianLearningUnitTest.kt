@@ -78,6 +78,34 @@ class RussianLearningUnitTest {
     }
 
     @Test
+    fun testAlphabetFullAuditPhonetics() {
+        assertEquals("Alphabet must contain exactly 33 letters", 33, AlphabetData.letters.size)
+
+        val letterJ = AlphabetData.letters.find { it.letter == "Й" }
+        assertTrue("Letter Й must exist", letterJ != null)
+        assertEquals("Letter Й must use single-syllable phonetic 'Йот' in sprint mode", "Йот", letterJ?.ttsFast)
+        assertEquals("Letter Й clean sound must be [й']", "[й']", letterJ?.soundClean)
+
+        val hardSign = AlphabetData.letters.find { it.letter == "Ъ" }
+        assertTrue("Letter Ъ must exist", hardSign != null)
+        assertTrue("Ъ must be marked as sign", hardSign?.isSign == true)
+        assertEquals("Ъ name must be Твёрдый знак", "Твёрдый знак", hardSign?.letterName)
+
+        val softSign = AlphabetData.letters.find { it.letter == "Ь" }
+        assertTrue("Letter Ь must exist", softSign != null)
+        assertTrue("Ь must be marked as sign", softSign?.isSign == true)
+        assertEquals("Ь name must be Мягкий знак", "Мягкий знак", softSign?.letterName)
+
+        val letterO = AlphabetData.letters.find { it.letter == "О" }
+        assertTrue("Letter О must exist", letterO != null)
+        assertEquals("Letter О must have acute accent to avoid reduction to [а]", "О́", letterO?.ttsFast)
+
+        val letterY = AlphabetData.letters.find { it.letter == "Ы" }
+        assertTrue("Letter Ы must exist", letterY != null)
+        assertEquals("Letter Ы must have acute accent for acoustic stability", "Ы́", letterY?.ttsFast)
+    }
+
+    @Test
     fun testLeaderboardUserRanking() {
         val board = GamificationData.getLeaderboard(500)
         assertTrue("Leaderboard must contain users", board.isNotEmpty())

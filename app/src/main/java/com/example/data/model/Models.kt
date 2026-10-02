@@ -22,7 +22,12 @@ data class LetterItem(
     val sound: String,
     val type: LetterType,
     val description: String,
-    val examples: List<WordExample>
+    val examples: List<WordExample>,
+    val letterName: String = letter,
+    val ttsFast: String = letter,
+    val soundClean: String = sound,
+    val isSign: Boolean = false,
+    val audioAssetPath: String? = null
 )
 
 @Entity(tableName = "dictionary_words")

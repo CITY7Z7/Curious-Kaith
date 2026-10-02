@@ -764,7 +764,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onLetterTapped(letter: LetterItem) {
         if (_isTapOnlyMode.value) {
-            ttsManager.speak(letter.letter)
+            ttsManager.speakOrPlayAsset(letter.ttsFast, letter.audioAssetPath)
             viewModelScope.launch {
                 repository.recordLetterPracticed(letter.letter, userProgress.value)
             }
@@ -776,11 +776,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun selectLetter(letter: LetterItem?) {
         _selectedLetter.value = letter
         if (letter != null) {
-            ttsManager.speak(letter.letter)
+            ttsManager.speakOrPlayAsset(letter.ttsFast, letter.audioAssetPath)
             viewModelScope.launch {
                 repository.recordLetterPracticed(letter.letter, userProgress.value)
             }
         }
+    }
+
+    fun speakLetterDetailed(letter: LetterItem) {
+        val speechText = if (letter.isSign) {
+            "${letter.letterName}. ${letter.description.substringBefore(".")}. Например: ${letter.examples.firstOrNull()?.word ?: ""}"
+        } else {
+            "Буква ${letter.letterName}. Звук ${letter.soundClean}. Например: ${letter.examples.firstOrNull()?.word ?: ""}"
+        }
+        ttsManager.speak(speechText)
     }
 
     fun unlockAlphabetByPass() {

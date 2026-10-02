@@ -1,6 +1,8 @@
 package com.example.service
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -15,6 +17,7 @@ class TtsManager(private val context: Context) : TextToSpeech.OnInitListener {
 
     private var tts: TextToSpeech? = null
     private var isInitialized = false
+    private var mediaPlayer: MediaPlayer? = null
 
     private val _isSpeaking = MutableStateFlow(false)
     val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
@@ -99,23 +102,100 @@ class TtsManager(private val context: Context) : TextToSpeech.OnInitListener {
         }
     }
 
+    /**
+     * Нормализация текста перед передачей в системный TTS:
+     * 1. Устраняет баг «И-краткое» при синтезе одиночной буквы «Й».
+     * 2. Ставит ударение на «О» и «Ко», исключая редукцию до «Ка».
+     */
+    fun normalizePhonetics(rawText: String): String {
+        return when (rawText.trim()) {
+            "Й", "й" -> "Йот"
+            "Ко", "ко" -> "Кó"
+            "О", "о" -> "О́"
+            "Ы", "ы" -> "Ы́"
+            "Э", "э" -> "Э́"
+            else -> rawText
+        }
+    }
+
+    /**
+     * Воспроизводит локальный зашитый аудиофайл из APK assets (offline, zero-network).
+     * @return true если файл успешно найден и воспроизводится, false если файл отсутствует
+     */
+    fun playAssetAudio(assetRelativePath: String, onComplete: (() -> Unit)? = null): Boolean {
+        return try {
+            val afd = context.assets.openFd(assetRelativePath)
+            stop()
+            mediaPlayer = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .build()
+                )
+                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                afd.close()
+                prepare()
+                _isSpeaking.value = true
+                setOnCompletionListener {
+                    _isSpeaking.value = false
+                    it.release()
+                    mediaPlayer = null
+                    onComplete?.invoke()
+                }
+                setOnErrorListener { mp, _, _ ->
+                    _isSpeaking.value = false
+                    mp.release()
+                    mediaPlayer = null
+                    false
+                }
+                start()
+            }
+            true
+        } catch (e: Exception) {
+            // Файл отсутствует в assets, используется fallback на синтез речи
+            false
+        }
+    }
+
+    /**
+     * Приоритетное воспроизведение: если передан путь к локальному аудиофайлу assets и он существует —
+     * воспроизводит студийный звук. Иначе озвучивает нормализованный текст через локальный TTS.
+     */
+    fun speakOrPlayAsset(text: String, assetPath: String? = null, onComplete: (() -> Unit)? = null) {
+        if (!assetPath.isNullOrBlank() && playAssetAudio(assetPath, onComplete)) {
+            return
+        }
+        speak(text, onComplete)
+    }
+
     fun speak(text: String, onComplete: (() -> Unit)? = null) {
+        val normalized = normalizePhonetics(text)
         if (!isInitialized || tts == null) {
             onComplete?.invoke()
             return
         }
         val utteranceId = "RU_TTS_${System.currentTimeMillis()}"
         val params = Bundle()
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+        tts?.speak(normalized, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
     }
 
     fun stop() {
+        try {
+            mediaPlayer?.let {
+                if (it.isPlaying) {
+                    it.stop()
+                }
+                it.release()
+            }
+            mediaPlayer = null
+        } catch (_: Exception) {}
         tts?.stop()
         _isSpeaking.value = false
     }
 
     fun shutdown() {
-        tts?.stop()
+        stop()
         tts?.shutdown()
         tts = null
         isInitialized = false
