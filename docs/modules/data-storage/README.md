@@ -9,7 +9,7 @@
 - Аннотация: `@Database(entities = [DictionaryWord::class, UserProgress::class, StudyPlan::class, BadgeItem::class], version = 2, exportSchema = false)`.
 - Имя файла БД: `"russian_learning_database"`.
 - Паттерн Singleton с защитой от гонок потоков (`@Volatile INSTANCE` + `synchronized`).
-- Стратегия миграции: `fallbackToDestructiveMigration()` для прототипирования.
+- Стратегия миграции: `fallbackToDestructiveMigration(dropAllTables = true)` для безопасного обновления структуры таблиц.
 
 ### 2.2. Сущности и таблицы (`Models.kt`)
 1. **`DictionaryWord` (`dictionary_words`)**:

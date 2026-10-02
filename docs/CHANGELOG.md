@@ -5,6 +5,17 @@
 
 ## 📜 История версий
 
+- **Версия 1.8.0** — *2026-10-02*
+  - **Таск #23: Безопасный фоллбэк релизной подписи в `build.gradle.kts`**:
+    - В `signingConfigs.release` добавлен автоматический фоллбэк: если файл ключа подписи `my-upload-key.jks` не найден в файловой системе (локальная разработка или некоммерческое тестирование), сборка автоматически использует существующий `debug.keystore`.
+    - Задача `:app:packageRelease` теперь завершается со статусом SUCCESS на любых пользовательских машинах без падения из-за отсутствия внешнего JKS-файла.
+  - **Таск #24: Устранение всех предупреждений компилятора Kotlin (Clean Build)**:
+    - Заменены устаревшие иконки `Icons.Default.VolumeUp`, `ArrowBack`, `ArrowForward` на адаптивные `Icons.AutoMirrored.Filled.*` в `AlphabetScreen.kt`, `DictionaryScreen.kt`, `FlashcardsScreen.kt`, `ParrotTrainerScreen.kt`, `SettingsScreen.kt`.
+    - Обновлены вызовы `menuAnchor()` на современную перегрузку Material 3 `menuAnchor(MenuAnchorType.PrimaryNotEditable)` в `ProgressScreen.kt` и `SettingsScreen.kt`.
+    - Устаревшие конструкторы `Locale("ru")` и `Locale("ru", "RU")` заменены на стандарт `Locale.forLanguageTag(...)` в `TtsManager.kt` и `PdfReportExporter.kt`.
+    - Метод `fallbackToDestructiveMigration()` в `AppDatabase.kt` обновлен на `fallbackToDestructiveMigration(dropAllTables = true)`.
+
+
 - **Версия 1.7.0** — *2026-10-02*
   - **Таск #22: Стабилизация сборочной конфигурации Gradle и AGP**:
     - Синхронизированы версии Android Gradle Plugin (`agp = "9.1.1"`), KSP (`2.3.5`) и Gradle Wrapper (`9.3.1`) для стабильной работы сборочного контейнера.

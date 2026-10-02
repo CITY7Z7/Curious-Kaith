@@ -43,11 +43,11 @@ class TtsManager(private val context: Context) : TextToSpeech.OnInitListener {
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            val russianLocale = Locale("ru", "RU")
+            val russianLocale = Locale.forLanguageTag("ru-RU")
             val result = tts?.setLanguage(russianLocale)
             if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                 Log.w("TtsManager", "Russian TTS data might be missing, trying generic ru locale")
-                tts?.language = Locale("ru")
+                tts?.language = Locale.forLanguageTag("ru")
             }
             tts?.setSpeechRate(speechRate)
             tts?.setPitch(speechPitch)

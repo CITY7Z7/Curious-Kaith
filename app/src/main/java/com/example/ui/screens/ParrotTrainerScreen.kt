@@ -38,13 +38,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicNone
 import androidx.compose.material.icons.filled.Replay
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -478,7 +478,7 @@ fun ParrotTrainerScreen(
                     shape = RoundedCornerShape(14.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.VolumeUp,
+                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                         contentDescription = "Слушать произношение"
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -591,7 +591,7 @@ fun ParrotTrainerScreen(
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.testTag("button_prev_lesson")
                     ) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Назад")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Назад")
                     }
@@ -620,7 +620,7 @@ fun ParrotTrainerScreen(
                     ) {
                         Text("Дальше")
                         Spacer(modifier = Modifier.width(4.dp))
-                        Icon(imageVector = Icons.Default.ArrowForward, contentDescription = "Дальше")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Дальше")
                     }
                 }
             }
@@ -839,7 +839,7 @@ private fun DialogueTrainerSection(
                                                 modifier = Modifier.size(28.dp)
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Default.VolumeUp,
+                                                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                                                     contentDescription = "Озвучить реплику",
                                                     tint = MaterialTheme.colorScheme.primary,
                                                     modifier = Modifier.size(18.dp)
@@ -940,7 +940,7 @@ private fun DialogueTrainerSection(
                         ) {
                             Text("Дальше")
                             Spacer(modifier = Modifier.width(6.dp))
-                            Icon(imageVector = Icons.Default.ArrowForward, contentDescription = "Следующий сценарий")
+                            Icon(imageVector = Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Следующий сценарий")
                         }
                     }
                 }
@@ -990,7 +990,7 @@ private fun DialogueTrainerSection(
                                     .testTag("btn_dialogue_listen_kesha"),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Icon(imageVector = Icons.Default.VolumeUp, contentDescription = "Слушать")
+                                Icon(imageVector = Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Слушать")
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("Послушать")
                             }
@@ -1004,7 +1004,7 @@ private fun DialogueTrainerSection(
                             ) {
                                 Text("Ответить")
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Icon(imageVector = Icons.Default.ArrowForward, contentDescription = "Перейти к ответу")
+                                Icon(imageVector = Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Перейти к ответу")
                             }
                         }
                     } else {
@@ -1050,7 +1050,7 @@ private fun DialogueTrainerSection(
                                 .testTag("btn_dialogue_sample"),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(imageVector = Icons.Default.VolumeUp, contentDescription = "Образец речи")
+                            Icon(imageVector = Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Образец речи")
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Послушать образец речи")
                         }
@@ -1474,7 +1474,7 @@ private fun IntonationTrainerSection(
                         .testTag("btn_intonation_listen"),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.VolumeUp, contentDescription = "Слушать интонацию")
+                    Icon(imageVector = Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Слушать интонацию")
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Шаг 1. Слушать мелодику ${currentItem.type.code} ${currentItem.type.arrowSymbol}",
@@ -1783,7 +1783,7 @@ private fun MinimalPairsTrainerSection(
                                 modifier = Modifier.size(36.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.VolumeUp,
+                                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                                     contentDescription = "Слушать слово A",
                                     tint = MaterialTheme.colorScheme.primary
                                 )
@@ -1842,7 +1842,7 @@ private fun MinimalPairsTrainerSection(
                                 modifier = Modifier.size(36.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.VolumeUp,
+                                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                                     contentDescription = "Слушать слово B",
                                     tint = MaterialTheme.colorScheme.primary
                                 )
@@ -1862,7 +1862,7 @@ private fun MinimalPairsTrainerSection(
                         .testTag("btn_pair_speak_both"),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.VolumeUp, contentDescription = "Блиц-сравнение")
+                    Icon(imageVector = Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Блиц-сравнение")
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Слушать пару подряд: «${currentPair.wordA.word}» ➔ «${currentPair.wordB.word}»",
@@ -2275,7 +2275,7 @@ fun MatrixTrainerSection(
                         .testTag("btn_matrix_listen"),
                     shape = RoundedCornerShape(14.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.VolumeUp, contentDescription = "Послушать образец")
+                    Icon(imageVector = Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Послушать образец")
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Послушать эталон Кеши 🦜",
@@ -2675,7 +2675,7 @@ fun TwisterTrainerSection(
                         .testTag("btn_twister_listen"),
                     shape = RoundedCornerShape(14.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.VolumeUp, contentDescription = "Послушать образец")
+                    Icon(imageVector = Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Послушать образец")
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Послушать Кешу ${if (isFastSpeechMode) "🚀" else "🐢"}",

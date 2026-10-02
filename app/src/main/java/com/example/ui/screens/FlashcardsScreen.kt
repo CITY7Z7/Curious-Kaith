@@ -26,12 +26,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.Replay
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -251,7 +251,7 @@ fun FlashcardsScreen(
                     },
                     modifier = Modifier.testTag("btn_card_prev")
                 ) {
-                    Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Предыдущая")
+                    Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Предыдущая")
                 }
 
                 FilledTonalButton(
@@ -271,7 +271,7 @@ fun FlashcardsScreen(
                     },
                     modifier = Modifier.testTag("btn_card_next")
                 ) {
-                    Icon(imageVector = Icons.Default.ArrowForward, contentDescription = "Следующая")
+                    Icon(imageVector = Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Следующая")
                 }
             }
         }
@@ -417,7 +417,7 @@ fun FlashcardItemView(
                     .testTag("btn_card_speak")
             ) {
                 Icon(
-                    imageVector = Icons.Default.VolumeUp,
+                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                     contentDescription = "Озвучить диктором",
                     tint = Color.White,
                     modifier = Modifier.size(28.dp)

@@ -66,7 +66,7 @@ object PdfReportExporter {
         }
         canvas.drawText("Школа полного погружения «Говорун» (Метод Попугая)", 36f, 75f, subtitlePaint)
 
-        val dateStr = SimpleDateFormat("dd MMMM yyyy г., HH:mm", Locale("ru")).format(Date())
+        val dateStr = SimpleDateFormat("dd MMMM yyyy г., HH:mm", Locale.forLanguageTag("ru")).format(Date())
         val datePaint = Paint().apply {
             color = Color.rgb(199, 210, 254)
             textSize = 10f
